@@ -197,18 +197,18 @@ def seed_default_sentinel_data():
                 "timestamp": (now - timedelta(minutes=24)).isoformat()
             },
             {
-                "incident_type": "unattended_item_breach",
-                "severity": "HIGH",
-                "target_item": "MacBook Pro 16 Space Gray",
-                "location_context": "University Library (2nd Floor Quiet Study Desk)",
-                "suspect_description": "Unidentified individual lingered for 12s, touched corner of device",
-                "displacement_velocity": 1.4,
+                "incident_type": "pocket_extraction_breach",
+                "severity": "CRITICAL",
+                "target_item": "iPhone 15 Pro (Titanium Black)",
+                "location_context": "Metro Station Escalator (Crowded Transit)",
+                "suspect_description": "Unidentified individual extracted device from coat pocket in crowded crowd",
+                "displacement_velocity": 3.2,
                 "bounding_box": [220, 240, 510, 420],
                 "segmentation_polygon": [[225, 245], [505, 240], [510, 415], [220, 418]],
                 "frame_path": "sample_scenes/office_desk.jpg",
                 "evidence_thumbnail": "thumbnails/airpods.jpg",
-                "ai_forensic_report": "UNAUTHORIZED CONTACT ALERT: Individual attempted lifting laptop while user was away from desk. Pre-alert haptic warning pulsed, causing individual to withdraw hand.",
-                "timestamp": (now - timedelta(hours=2, minutes=15)).isoformat()
+                "ai_forensic_report": "POCKET EXTRACTION DETECTED: Device transitioned from 0 lux darkness to ambient light with 1.8g lift while owner was stationary. Extraction Chime sounded and suspect evidence locked.",
+                "timestamp": (now - timedelta(hours=1, minutes=15)).isoformat()
             }
         ]
         for inc in demo_incidents:

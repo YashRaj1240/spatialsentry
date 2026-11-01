@@ -18,7 +18,7 @@ class EphemeralRollingBuffer:
         self.max_seconds = max_seconds
         self.buffer = deque(maxlen=20) # 2 fps * 10s = 20 frames max in memory
         self.is_armed = True
-        self.protected_items = ["Handbag", "Laptop", "Phone", "Backpack", "Keys"]
+        self.protected_items = ["Smartphone", "Handbag", "Purse", "Coat Pocket", "Keys"]
 
     def add_frame(self, frame_bytes: bytes, metadata: Dict[str, Any]):
         """Adds frame to RAM circular buffer; oldest drops out and garbage-collected"""

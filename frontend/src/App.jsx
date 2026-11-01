@@ -359,7 +359,7 @@ export default function App() {
     setTimeout(() => {
       setIsRecording(false);
       const prompts = [
-        "Did someone touch my laptop?",
+        "Did someone grab my phone?",
         "Did anyone try to take my handbag?",
         "Did I unplug the iron?",
         "Where are my apartment keys?"
@@ -704,7 +704,7 @@ export default function App() {
 
                           <div className="self-center border-2 border-dashed border-cyan-400/50 rounded-2xl w-64 h-48 flex flex-col items-center justify-center text-xs text-cyan-300 font-mono gap-1">
                             <span>[ PROTECTED ZONE ]</span>
-                            <span className="text-[10px] text-gray-400">Handbag / Laptop / Phone</span>
+                            <span className="text-[10px] text-gray-400">Smartphone / Handbag / Purse</span>
                           </div>
 
                           <div className="text-[11px] text-gray-400 text-center bg-black/80 backdrop-blur-sm py-1 rounded-lg border border-gray-800">
@@ -785,17 +785,11 @@ export default function App() {
                       Test Pocket Extraction Popup
                     </button>
                     <button
-                      onClick={() => handleTriggerSnatch("Designer Leather Handbag")}
+                      onClick={() => handleTriggerSnatch("Smartphone (Handbag Snatch Attempt)")}
                       className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-950/50 transition-all flex items-center gap-2"
                     >
                       <Zap className="w-4 h-4 animate-bounce" />
                       Test Snatch Intercept
-                    </button>
-                    <button
-                      onClick={() => handleTriggerSnatch("MacBook Pro 16")}
-                      className="px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold text-xs border border-gray-700 transition-all"
-                    >
-                      Laptop Theft
                     </button>
                   </div>
                 </div>
@@ -820,16 +814,16 @@ export default function App() {
 
                   <div className="space-y-2.5 text-xs">
                     <div className="flex items-center justify-between p-3 rounded-xl bg-gray-900 border border-gray-800">
+                      <span className="text-gray-300 font-medium">📱 Smartphones & Devices</span>
+                      <span className="text-emerald-400 font-semibold">Pocket & Snatch Guard</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-900 border border-gray-800">
                       <span className="text-gray-300 font-medium">👜 Handbags & Purses</span>
                       <span className="text-emerald-400 font-semibold">Active Perimeter</span>
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl bg-gray-900 border border-gray-800">
-                      <span className="text-gray-300 font-medium">💻 Laptops & Tablets</span>
-                      <span className="text-emerald-400 font-semibold">Active Perimeter</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-900 border border-gray-800">
-                      <span className="text-gray-300 font-medium">📱 Smartphones</span>
-                      <span className="text-emerald-400 font-semibold">Motion Sensor Guard</span>
+                      <span className="text-gray-300 font-medium">👛 Coat & Pocket Storage</span>
+                      <span className="text-emerald-400 font-semibold">Darkness Sensor Active</span>
                     </div>
                   </div>
 
@@ -943,7 +937,7 @@ export default function App() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    placeholder="e.g. 'Did someone touch my laptop?' or 'Did I unplug the iron?'..."
+                    placeholder="e.g. 'Did someone grab my phone?' or 'Did I unplug the iron?'..."
                     className="w-full bg-gray-900 border border-gray-800 focus:border-cyan-400 rounded-xl px-4 py-3.5 text-sm text-gray-100 outline-none transition-all pr-12 shadow-inner"
                   />
                   <button
@@ -973,8 +967,8 @@ export default function App() {
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-gray-500">Quick tests:</span>
                 {[
-                  "Did someone touch my laptop?",
-                  "Did anyone try to take my handbag?",
+                  "Did someone grab my phone?",
+                  "Did anyone reach into my handbag?",
                   "Did I unplug the iron?",
                   "Where are my apartment keys?"
                 ].map((promptText, idx) => (
