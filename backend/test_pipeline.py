@@ -4,7 +4,7 @@ from app.memory.query_engine import answer_spatial_query
 
 def main():
     print("=" * 60)
-    print("  SpatialRecall Pipeline & Memory Graph Test")
+    print("  SpatialSentry Pipeline & Memory Graph Test")
     print("=" * 60)
 
     # 1. Initialize & Seed DB

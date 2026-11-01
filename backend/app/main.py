@@ -16,8 +16,8 @@ from app.models.mock_engine import mock_muse_spark_reasoning
 from app.models.meta_client import meta_client
 
 app = FastAPI(
-    title="AegisAI Sentinel API",
-    description="24/7 Ephemeral AI Bodyguard & Anti-Theft Sentinel powered by Meta SAM 3.1 & Muse",
+    title="SpatialSentry Sentinel API",
+    description="24/7 Ephemeral AI Smartphone Bodyguard & Spatial Memory Sentinel powered by Meta SAM 3.1 & Muse",
     version="2.0.0"
 )
 
@@ -50,7 +50,7 @@ def health_check():
 
     return {
         "status": "active",
-        "service": "AegisAI - 24/7 AI Bodyguard & Sentinel",
+        "service": "SpatialSentry - 24/7 AI Smartphone Bodyguard & Spatial Memory",
         "mode": "Simulation (Pre-Key)" if MOCK_MODE else "Live (Meta Model API)",
         "models": {
             "threat_segmentation": "Meta SAM 3.1",

@@ -1,4 +1,4 @@
-# 📱🛡️ AegisAI — 24/7 Ephemeral AI Smartphone Bodyguard & Anti-Theft Sentinel
+# 📱🛡️ SpatialSentry — 24/7 Ephemeral AI Smartphone Bodyguard & Spatial Memory Sentinel
 
 > **Continuous Smartphone Protection, Snatch Deterrence & Pocket Extraction Guardian Powered by Meta AI**  
 > *Built for the Meta Global AI Developer Hackathon 2026 · Track: Indie Developer ($150,000 1st Prize)*
@@ -20,9 +20,9 @@ Yet, people refuse to run continuous recording apps for one simple reason: **PRI
 
 ---
 
-## 🛡️ The Breakthrough: AegisAI & The Ephemeral Rolling Buffer
+## 🛡️ The Breakthrough: SpatialSentry & The Ephemeral Rolling Buffer
 
-**AegisAI** provides **24/7 proactive smartphone protection without ever recording your private life**.
+**SpatialSentry** provides **24/7 proactive smartphone protection without ever recording your private life**.
 
 ```
 [Smartphone Camera & Darkness Sensors]
@@ -60,7 +60,7 @@ Yet, people refuse to run continuous recording apps for one simple reason: **PRI
 - Video exists **only in transient RAM memory** for 10 seconds.
 - If no threat or safety event occurs, the video frames are **automatically overwritten and destroyed**.
 - Your private life, conversations, and home are **never saved to disk or uploaded to the cloud**.
-- When you are distracted, AegisAI quietly verifies important safety details:
+- When you are distracted, SpatialSentry quietly verifies important safety details:
   - *"Did I unplug the iron before leaving?"* → Verified at 8:14 AM.
   - *"Did someone grab my phone while I was away?"* → Reports unauthorized contact attempt.
   - *"Where are my apartment keys?"* → Verified on the kitchen counter.
@@ -75,7 +75,7 @@ flowchart TD
         Stream["Live Video Sensor Stream (1-30 FPS)"]
     end
 
-    subgraph MemoryEngine["2. Aegis Ephemeral Engine (Zero-Disk)"]
+    subgraph MemoryEngine["2. Spatial Ephemeral Engine (Zero-Disk)"]
         Stream --> RAM["In-Memory Circular Buffer (deque maxlen=20)"]
         RAM --> Monitor["Velocity Vector & Perimeter Analyzer"]
         Monitor -- "No Threat (99.9% of time)" --> Purge["🗑️ Auto-Purge from RAM (0 MB Stored)"]
@@ -129,9 +129,9 @@ Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 ## 🎬 3-Minute Hackathon Demo Script (For Judges)
 
 * **0:00 - 0:30 (The Hook & Problem):**
-  *"Every day, thousands of smartphones and bags are snatched on streets and transit. People can't use continuous body cameras because of privacy. Meet AegisAI: the 24/7 AI smartphone bodyguard that watches your back without ever storing your private life."*
+  *"Every day, thousands of smartphones and bags are snatched on streets and transit. People can't use continuous body cameras because of privacy. Meet SpatialSentry: the 24/7 AI smartphone bodyguard that watches your back without ever storing your private life."*
 * **0:30 - 1:15 (The Rolling Buffer & Pocket Extraction Chime):**
-  *Show the Live Sentinel Radar HUD. Explain the 10-second rolling RAM buffer showing 0MB persistent disk storage, and test the signature Pocket Extraction Chime & Popup.*
+  *Show the Live Spatial Radar HUD. Explain the 10-second rolling RAM buffer showing 0MB persistent disk storage, and test the signature Pocket Extraction Chime & Popup.*
 * **1:15 - 2:00 (The Action: Simulated Snatch Intercept):**
   *Arm the perimeter. Click 'Test Snatch Intercept'. The siren blares! The screen flashes red! Meta SAM 3.1 locks the neon suspect polygon over the snatching hand.*
 * **2:00 - 2:30 (Evidence Vault & Forensic Ledger):**

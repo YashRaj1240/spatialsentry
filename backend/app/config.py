@@ -28,7 +28,7 @@ DATA_DIR = BASE_DIR / "data"
 THUMBNAILS_DIR = DATA_DIR / "thumbnails"
 SCENES_DIR = DATA_DIR / "sample_scenes"
 INCIDENTS_DIR = DATA_DIR / "incidents"
-DB_PATH = DATA_DIR / "aegis_sentinel.db"
+DB_PATH = DATA_DIR / "spatialsentry.db"
 
 # Ensure runtime directories exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)

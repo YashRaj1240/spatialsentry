@@ -429,13 +429,13 @@ export default function App() {
           <div>
             <div className="flex items-center gap-2.5">
               <span className="font-extrabold tracking-wider text-xl bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
-                AegisAI
+                SpatialSentry
               </span>
               <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-indigo-950/80 text-indigo-300 border border-indigo-700/60 rounded-full flex items-center gap-1 shadow-sm">
-                24/7 Ephemeral Sentinel
+                24/7 Spatial Sentinel
               </span>
             </div>
-            <p className="text-xs text-gray-400">Continuous AI Bodyguard & Anti-Theft Guardian · Zero-Surveillance Privacy</p>
+            <p className="text-xs text-gray-400">Smartphone Bodyguard & Spatial Memory Engine · Zero-Surveillance Privacy</p>
           </div>
         </div>
 
@@ -559,7 +559,7 @@ export default function App() {
                 : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/40'
             }`}
           >
-            🛡️ Live Sentinel Radar
+            🛡️ Live Spatial Radar
           </button>
           <button
             onClick={() => setActiveTab('vault')}
@@ -579,7 +579,7 @@ export default function App() {
                 : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/40'
             }`}
           >
-            🤝 Safety Assistant & Memory
+            🧠 Spatial Memory & Safety
           </button>
         </div>
 
@@ -646,7 +646,7 @@ export default function App() {
                           <div className="w-full flex items-center justify-between text-[11px] font-mono text-cyan-400 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-cyan-800/50">
                             <span className="flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                              <span className="font-bold">AEGIS RADAR ENGAGED</span>
+                              <span className="font-bold">SPATIAL SENTRY RADAR ACTIVE</span>
                             </span>
                             <span className="text-gray-400">Zero-Surveillance Guarantee</span>
                             <span className="text-emerald-400 font-semibold">10s Rolling Purge</span>
@@ -730,7 +730,7 @@ export default function App() {
                             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-black font-bold text-xs shadow-lg shadow-cyan-950/40 transition-all flex items-center gap-2"
                           >
                             <ShieldCheck className="w-4 h-4" />
-                            Engage Aegis Bodyguard (Camera Guard)
+                            Engage Spatial Sentry Guard (Camera Guard)
                           </button>
                         </div>
                       )}
@@ -922,7 +922,7 @@ export default function App() {
               <div>
                 <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-indigo-400" />
-                  Ask AegisAI: Safety & Ambient Memory
+                  Ask SpatialSentry: Spatial Memory & Anti-Theft
                 </h2>
                 <p className="text-xs text-gray-400 mt-1">
                   Query your security timeline or ambient peace-of-mind memories hands-free.
