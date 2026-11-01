@@ -23,6 +23,11 @@ export default function App() {
   const audioCtxRef = useRef(null);
   const sirenOscRef = useRef(null);
 
+  // Pocket & Purse Extraction Guardian states
+  const [pocketPopup, setPocketPopup] = useState(null); // { active: boolean, timestamp: string }
+  const [isPocketDark, setIsPocketDark] = useState(false);
+  const wasDarkRef = useRef(false);
+
   // Assistant states
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -140,6 +145,57 @@ export default function App() {
     setActiveAlarm(null);
   };
 
+  // Pleasant Signature Extraction Chime (Non-intrusive notification)
+  const playExtractionChime = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      // Friendly Apple-Pay style two-tone chime: D5 (587Hz) -> A5 (880Hz) with soft bell decay
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.12);
+
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.25, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.7);
+    } catch (err) {
+      console.warn("Chime audio error:", err);
+    }
+  };
+
+  const triggerPocketExtraction = () => {
+    playExtractionChime();
+    setPocketPopup({
+      active: true,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    });
+  };
+
+  const handlePocketConfirmOwner = () => {
+    setPocketPopup(null);
+  };
+
+  const handlePocketReportTheft = () => {
+    setPocketPopup(null);
+    handleTriggerSnatch("Smartphone (Extracted from Pocket/Bag)");
+  };
+
   // Trigger Simulated / Real Snatch Intercept
   const handleTriggerSnatch = async (targetItem = "Designer Leather Handbag") => {
     try {
@@ -192,7 +248,49 @@ export default function App() {
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
+    setIsPocketDark(false);
+    wasDarkRef.current = false;
   };
+
+  // Real-time Darkness-to-Light pocket extraction monitor
+  useEffect(() => {
+    if (!isCameraActive) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 24;
+    const ctx = canvas.getContext('2d');
+
+    const interval = setInterval(() => {
+      if (!videoRef.current || videoRef.current.readyState < 2) return;
+      try {
+        ctx.drawImage(videoRef.current, 0, 0, 32, 24);
+        const imgData = ctx.getImageData(0, 0, 32, 24);
+        let sum = 0;
+        for (let i = 0; i < imgData.data.length; i += 16) {
+          sum += (imgData.data[i] * 0.299 + imgData.data[i + 1] * 0.587 + imgData.data[i + 2] * 0.114);
+        }
+        const avgLuminance = sum / (imgData.data.length / 16);
+        const isDark = avgLuminance < 25; // Pitch black inside pocket/bag
+
+        if (isDark) {
+          if (!wasDarkRef.current) {
+            wasDarkRef.current = true;
+            setIsPocketDark(true);
+          }
+        } else {
+          if (wasDarkRef.current) {
+            // Uncovered / Extracted from pocket into light!
+            wasDarkRef.current = false;
+            setIsPocketDark(false);
+            triggerPocketExtraction();
+          }
+        }
+      } catch (e) {}
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [isCameraActive]);
 
   // Assistant Query
   const handleSearch = async (queryText) => {
@@ -406,6 +504,50 @@ export default function App() {
         </div>
       )}
 
+      {/* 2.5 POCKET & PURSE EXTRACTION POPUP (NON-INTRUSIVE CHIME & VERIFICATION) */}
+      {pocketPopup && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-[#0f172a]/95 backdrop-blur-xl border-2 border-cyan-400/80 rounded-2xl p-4 shadow-2xl shadow-cyan-950/80 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shrink-0">
+                <Smartphone className="w-5 h-5 animate-bounce" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+                    ✨ Extraction Chime Sounded
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono">{pocketPopup.timestamp}</span>
+                </div>
+                <h4 className="text-sm font-bold text-gray-100 mt-0.5">
+                  Phone Removed from Pocket / Bag
+                </h4>
+                <p className="text-xs text-gray-300 mt-1 leading-relaxed">
+                  Did you just remove your phone? If you did not, someone nearby may have pulled it from your purse or coat.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                onClick={handlePocketConfirmOwner}
+                className="flex-1 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                Yes, It's Me (Dismiss)
+              </button>
+              <button
+                onClick={handlePocketReportTheft}
+                className="py-2 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-950/50 transition-all flex items-center gap-1.5"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Not Me! (Lock Evidence)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 3. NAVIGATION SUB-HEADER */}
       <nav className="px-6 py-2.5 bg-[#090d16]/60 border-b border-gray-800/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -536,8 +678,8 @@ export default function App() {
                             </div>
                             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-gray-800/80">
                               <p className="text-[10px] text-gray-500 uppercase font-semibold">Perimeter Sensor</p>
-                              <p className="font-bold text-emerald-400 mt-0.5">
-                                ACTIVE (0.1 m/s)
+                              <p className={`font-bold mt-0.5 ${isPocketDark ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
+                                {isPocketDark ? '🌑 IN POCKET / BAG' : 'ACTIVE (0.1 m/s)'}
                               </p>
                             </div>
                             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-gray-800/80">
@@ -634,19 +776,26 @@ export default function App() {
                   </div>
 
                   {/* SIMULATE THEFT BUTTON (The Hackathon Winner Feature) */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={triggerPocketExtraction}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+                      Test Pocket Extraction Popup
+                    </button>
                     <button
                       onClick={() => handleTriggerSnatch("Designer Leather Handbag")}
                       className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-950/50 transition-all flex items-center gap-2"
                     >
                       <Zap className="w-4 h-4 animate-bounce" />
-                      Test Intercept: Simulate Handbag Snatch
+                      Test Snatch Intercept
                     </button>
                     <button
                       onClick={() => handleTriggerSnatch("MacBook Pro 16")}
-                      className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold text-xs border border-gray-700 transition-all"
+                      className="px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold text-xs border border-gray-700 transition-all"
                     >
-                      Simulate Laptop Theft
+                      Laptop Theft
                     </button>
                   </div>
                 </div>
