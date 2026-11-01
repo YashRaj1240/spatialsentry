@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,10 +7,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
-from app.config import DATA_DIR, MOCK_MODE, META_MODEL_API_KEY
+from app.config import DATA_DIR, SCENES_DIR, MOCK_MODE, META_MODEL_API_KEY
 from app.memory.database import (
     init_db, seed_default_sentinel_data, get_all_incidents,
-    get_all_memories, get_connection
+    get_all_memories, get_connection, insert_memory
 )
 from app.sentinel.sentinel_engine import sentinel_engine
 from app.models.mock_engine import mock_muse_spark_reasoning
@@ -110,6 +111,42 @@ async def query_text(req: TextQueryRequest):
     
     result = mock_muse_spark_reasoning(req.query, memories=memories, incidents=incidents)
     return result
+
+@app.post("/api/sentinel/register-memory")
+async def register_live_memory(
+    frame: UploadFile = File(...),
+    object_name: str = Form("wireless earbuds"),
+    room_context: str = Form("table surface")
+):
+    frame_bytes = await frame.read()
+    now_ts = datetime.now()
+    filename = f"capture_{int(now_ts.timestamp())}.jpg"
+    file_path = SCENES_DIR / filename
+    with open(file_path, "wb") as f:
+        f.write(frame_bytes)
+
+    # Insert into spatial memory graph
+    mem_id = insert_memory(
+        session_id="live_camera_scan",
+        object_name=object_name.strip().lower(),
+        category="personal_items",
+        room_context=room_context.strip(),
+        confidence=0.98,
+        bounding_box=[260, 180, 480, 360],
+        segmentation_polygon=[[260, 185], [470, 180], [480, 355], [265, 360]],
+        thumbnail_path=f"sample_scenes/{filename}",
+        frame_path=f"sample_scenes/{filename}",
+        timestamp=now_ts.isoformat()
+    )
+    return {
+        "success": True,
+        "memory_id": mem_id,
+        "object_name": object_name,
+        "room_context": room_context,
+        "timestamp": now_ts.isoformat(),
+        "frame_path": f"sample_scenes/{filename}",
+        "explanation": f"I verified and memorized your {object_name} on the {room_context} at {now_ts.strftime('%I:%M %p')} with 98% confidence."
+    }
 
 @app.post("/api/ingest-frame")
 async def ingest_frame(

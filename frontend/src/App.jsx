@@ -34,6 +34,11 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [assistantResult, setAssistantResult] = useState(null);
 
+  // Live Camera Object Memory Scanner states
+  const [isScanningMemory, setIsScanningMemory] = useState(false);
+  const [memoryScanSuccess, setMemoryScanSuccess] = useState('');
+  const [objectScanLabel, setObjectScanLabel] = useState('wireless earbuds');
+
   // Fetch initial data & unlock mobile AudioContext on first touch
   useEffect(() => {
     fetchIncidents();
@@ -325,6 +330,78 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isCameraActive]);
 
+  // Native Text-to-Speech (TTS) for Hands-Free Voice Assistant
+  const speakText = (text) => {
+    if (!text) return;
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const clean = text
+          .replace(/[\u{1F600}-\u{1F6FF}|[\u{2600}-\u{26FF}]|[\u{1F300}-\u{1F5FF}]|[\u{1F900}-\u{1F9FF}]/gu, '')
+          .replace(/[*_#`~⚠️🚨✨]/g, '')
+          .trim();
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn("TTS Error:", e);
+      }
+    }
+  };
+
+  // Live Camera Scan & Remember Object
+  const handleScanAndRemember = async () => {
+    if (!videoRef.current || videoRef.current.readyState < 2) {
+      alert("Please engage the camera guard first to scan an object.");
+      return;
+    }
+    setIsScanningMemory(true);
+    setMemoryScanSuccess('');
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setIsScanningMemory(false);
+          return;
+        }
+        const formData = new FormData();
+        formData.append('frame', blob, 'camera_scan.jpg');
+        formData.append('object_name', objectScanLabel || 'wireless earbuds');
+        formData.append('room_context', 'table surface');
+
+        try {
+          const res = await fetch('/api/sentinel/register-memory', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            setMemoryScanSuccess(`✨ Memorized: ${data.object_name} on table!`);
+            playExtractionChime();
+            speakText(`Got it! I have memorized your ${data.object_name} on the table.`);
+            setTimeout(() => setMemoryScanSuccess(''), 5000);
+          }
+        } catch (e) {
+          console.error("Register memory failed:", e);
+        } finally {
+          setIsScanningMemory(false);
+        }
+      }, 'image/jpeg', 0.85);
+    } catch (err) {
+      console.error("Scan error:", err);
+      setIsScanningMemory(false);
+    }
+  };
+
   // Assistant Query
   const handleSearch = async (queryText) => {
     const q = queryText || query;
@@ -343,6 +420,9 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setAssistantResult(data);
+        if (data.explanation) {
+          speakText(data.explanation);
+        }
       }
     } catch (err) {
       console.error("Query failed:", err);
@@ -392,10 +472,10 @@ export default function App() {
     setTimeout(() => {
       setIsRecording(false);
       const prompts = [
+        "Where are my earbuds?",
+        "Where are my apartment keys?",
         "Did someone grab my phone?",
-        "Did anyone try to take my handbag?",
-        "Did I unplug the iron?",
-        "Where are my apartment keys?"
+        "Did I unplug the iron?"
       ];
       const chosen = prompts[Math.floor(Math.random() * prompts.length)];
       setQuery(chosen);
@@ -777,6 +857,19 @@ export default function App() {
                   )}
                 </div>
 
+                {/* Memory Scan Success Notification */}
+                {memoryScanSuccess && (
+                  <div className="bg-emerald-500/20 border-b border-emerald-500/40 text-emerald-300 px-5 py-2.5 text-xs font-semibold flex items-center justify-between animate-pulse">
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      {memoryScanSuccess}
+                    </span>
+                    <span className="text-[10px] bg-emerald-950/80 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-600/50">
+                      Indexed into Spatial Memory
+                    </span>
+                  </div>
+                )}
+
                 {/* Radar Action Toolbar */}
                 <div className="p-4 bg-gray-900/80 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
@@ -801,6 +894,16 @@ export default function App() {
                         >
                           {showRawFeed ? <Lock className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           {showRawFeed ? 'Mask Video (Privacy Mode)' : 'Peek Camera Angle'}
+                        </button>
+
+                        {/* Live Object Scanner & Memory Saver */}
+                        <button
+                          onClick={handleScanAndRemember}
+                          disabled={isScanningMemory}
+                          className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-950/40"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          {isScanningMemory ? 'Memorizing...' : '📸 Scan & Remember'}
                         </button>
                       </>
                     ) : (
@@ -1006,10 +1109,10 @@ export default function App() {
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-gray-500">Quick tests:</span>
                 {[
+                  "Where are my earbuds?",
+                  "Where are my apartment keys?",
                   "Did someone grab my phone?",
-                  "Did anyone reach into my handbag?",
-                  "Did I unplug the iron?",
-                  "Where are my apartment keys?"
+                  "Did I unplug the iron?"
                 ].map((promptText, idx) => (
                   <button
                     key={idx}
@@ -1049,8 +1152,16 @@ export default function App() {
                   </span>
                 </div>
 
-                <div className="p-4 rounded-xl bg-gray-900 border border-gray-800 text-sm text-gray-200 leading-relaxed">
-                  {assistantResult.explanation}
+                <div className="p-4 rounded-xl bg-gray-900 border border-gray-800 text-sm text-gray-200 leading-relaxed flex items-center justify-between gap-3">
+                  <span>{assistantResult.explanation}</span>
+                  <button
+                    onClick={() => speakText(assistantResult.explanation)}
+                    title="Speak answer aloud"
+                    className="p-2 rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 shrink-0 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    <span>Speak</span>
+                  </button>
                 </div>
 
                 <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-gray-800">

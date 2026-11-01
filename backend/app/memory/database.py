@@ -218,6 +218,18 @@ def seed_default_sentinel_data():
         demo_memories = [
             {
                 "session_id": "ambient_sentinel_morning",
+                "object_name": "wireless earbuds (AirPods)",
+                "category": "personal_items",
+                "room_context": "Work desk table, resting right on the surface",
+                "confidence": 0.99,
+                "bounding_box": [280, 210, 420, 340],
+                "segmentation_polygon": [[280, 215], [410, 210], [420, 335], [285, 340]],
+                "thumbnail_path": "thumbnails/airpods.jpg",
+                "frame_path": "sample_scenes/office_desk.jpg",
+                "timestamp": (now - timedelta(minutes=15)).isoformat()
+            },
+            {
+                "session_id": "ambient_sentinel_morning",
                 "object_name": "apartment keys with carbon fob",
                 "category": "personal_items",
                 "room_context": "Kitchen island, resting beside the ceramic bowl",

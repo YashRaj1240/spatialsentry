@@ -49,6 +49,26 @@ def mock_sentinel_snatch_analysis(
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S")
     }
 
+SYNONYM_GROUPS = {
+    "earbuds": ["earbuds", "earbud", "airpods", "airpod", "headphones", "headphone", "buds", "earphones", "earphone", "audio", "pods"],
+    "keys": ["keys", "key", "fob", "keychain", "car keys", "apartment keys"],
+    "phone": ["phone", "smartphone", "iphone", "mobile", "device", "handset", "cellphone"],
+    "wallet": ["wallet", "purse", "cardholder", "cards", "money"],
+    "iron": ["iron", "clothing iron", "flat iron", "unplugged iron"],
+    "handbag": ["handbag", "bag", "backpack", "tote", "purse"],
+    "glasses": ["glasses", "spectacles", "sunglasses", "shades"],
+    "watch": ["watch", "smartwatch", "apple watch", "timepiece"],
+    "charger": ["charger", "cable", "adapter", "power cord"],
+}
+
+def expand_query_keywords(keywords: List[str]) -> set:
+    expanded = set(keywords)
+    for kw in keywords:
+        for group_key, synonyms in SYNONYM_GROUPS.items():
+            if kw == group_key or kw in synonyms or group_key in kw:
+                expanded.update(synonyms)
+    return expanded
+
 def mock_muse_spark_reasoning(
     query: str,
     memories: List[Dict[str, Any]],
@@ -56,8 +76,9 @@ def mock_muse_spark_reasoning(
 ) -> Dict[str, Any]:
     """Simulates Muse Spark temporal, safety & spatial reasoning over the episodic sentinel graph"""
     words = [re.sub(r'[^\w]', '', w.lower()) for w in query.split()]
-    stopwords = {"where", "what", "when", "which", "did", "have", "left", "leave", "find", "seen", "show", "tell", "about", "your", "mine", "this", "that", "there", "here", "with", "from", "someone"}
-    query_keywords = [w for w in words if len(w) >= 3 and w not in stopwords]
+    stopwords = {"where", "what", "when", "which", "did", "have", "left", "leave", "find", "seen", "show", "tell", "about", "your", "mine", "this", "that", "there", "here", "with", "from", "someone", "the", "are", "is", "my"}
+    raw_keywords = [w for w in words if len(w) >= 3 and w not in stopwords]
+    query_keywords = expand_query_keywords(raw_keywords)
 
     # Check incidents first (safety / theft related)
     if incidents:
@@ -77,7 +98,7 @@ def mock_muse_spark_reasoning(
                     "segmentation_polygon": inc["segmentation_polygon"],
                     "frame_path": inc["frame_path"],
                     "thumbnail_path": inc["evidence_thumbnail"],
-                    "explanation": f"⚠️ SAFETY ALERT RECORDED: {inc['ai_forensic_report']}"
+                    "explanation": f"Security alert: {inc['ai_forensic_report']}"
                 }
 
     # Otherwise check ambient memories
@@ -87,17 +108,14 @@ def mock_muse_spark_reasoning(
         name = mem.get("object_name", "").lower()
         cat = mem.get("category", "").lower()
         context = mem.get("room_context", "").lower()
-        score = sum(1 for kw in query_keywords if kw in name) * 3 + \
-                sum(1 for kw in query_keywords if kw in cat) * 2 + \
+        score = sum(3 for kw in query_keywords if kw in name) + \
+                sum(2 for kw in query_keywords if kw in cat) + \
                 sum(1 for kw in query_keywords if kw in context)
         if score > best_score:
             best_score = score
             matched = mem
 
-    if not matched and memories:
-        matched = memories[0]
-
-    if matched:
+    if matched and best_score > 0:
         return {
             "found": True,
             "is_incident": False,
@@ -109,11 +127,11 @@ def mock_muse_spark_reasoning(
             "segmentation_polygon": matched["segmentation_polygon"],
             "frame_path": matched["frame_path"],
             "thumbnail_path": matched["thumbnail_path"],
-            "explanation": f"Ambient Sentinel Memory: Your {matched['object_name']} was verified at {matched['timestamp'][:16].replace('T', ' ')} in the {matched['room_context']}."
+            "explanation": f"I verified your {matched['object_name']} in the {matched['room_context']} at {matched['timestamp'][11:16]} with {int(matched['confidence']*100)}% confidence."
         }
 
     return {
         "found": False,
         "target_object": query,
-        "explanation": f"I scanned your Sentinel timeline, but found no security incident or recent observation matching '{query}'."
+        "explanation": f"I scanned your recent memory timeline, but did not find any recorded observation of '{query}'. You can tap 'Scan & Remember' on the Live Radar to index it right now!"
     }
