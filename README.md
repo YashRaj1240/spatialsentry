@@ -1,23 +1,28 @@
-# 👓 SpatialRecall — Ctrl+F for the Physical World
+# 📱👓 SpatialRecall — Ctrl+F for the Physical World
 
-> **Episodic Spatial-Temporal Memory Engine for Wearables & Smart Glasses**  
+> **Universal Episodic Spatial-Temporal Memory Engine for Smartphones & Meta Smart Glasses**  
 > *Built for the Meta Global AI Developer Hackathon 2026 · Track: Indie Developer*
 
 [![Meta Model API](https://img.shields.io/badge/Meta%20Model%20API-SAM%203.1%20%7C%20Muse%20Spark-0081FB?logo=meta)](https://dev.meta.ai/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind-61DAFB?logo=react)](https://react.dev/)
 [![Storage](https://img.shields.io/badge/Storage-%3C15MB%20%2F%20day-emerald)](https://github.com/)
+[![Platforms](https://img.shields.io/badge/Platforms-Smartphones%20%7C%20Meta%20Ray--Ban%20%7C%20Web-purple)](https://github.com/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ---
 
-## 🚀 The Vision: An Episodic Memory for Smart Glasses
+## 🚀 The Vision: Searchable Physical Reality for 5 Billion People
 
 Every human on Earth loses their keys, wallet, AirPods, tools, or medications right when they need to leave the house. People spend an average of **15 to 30 minutes every week retracing their steps in pure frustration**.
 
 While smartphones and smart glasses (like **Meta Ray-Bans**) can see what is in front of you *right now*, **current AI has amnesia**—it has zero memory of what you looked at 2 hours ago.
 
-**SpatialRecall** solves this by turning passive egocentric camera video into an **instant, searchable spatial memory of physical reality**. You speak naturally into your glasses or phone, and Meta AI instantly recalls the exact moment and location where your item was last seen, highlighting it with glowing pixel precision on an interactive visual HUD.
+**SpatialRecall** bridges the gap across the entire consumer hardware spectrum:
+1. **For Everyday Smartphone Users (Mass Market):** Open the camera for a 2-second sweep of your desk or room before you leave. SpatialRecall indexes your items in the background.
+2. **For Smart Glasses Wearers (Meta Ray-Ban & Quest):** Runs passively and hands-free, automatically tracking what you set down throughout your day.
+
+When you lose an item hours later, you speak naturally into your glasses or phone, and Meta AI instantly recalls the exact moment and location where your item was last seen, highlighting it with glowing pixel precision on an interactive visual HUD.
 
 ---
 

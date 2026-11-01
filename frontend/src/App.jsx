@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Glasses, Mic, Search, MapPin, Clock, Eye, 
   Layers, HardDrive, Cpu, CheckCircle2, AlertCircle,
-  Sparkles, RefreshCw, ChevronRight, Video, Camera
+  Sparkles, RefreshCw, ChevronRight, Video, VideoOff, Camera, Smartphone
 } from 'lucide-react';
 
 export default function App() {
@@ -20,6 +20,11 @@ export default function App() {
   const [targetHint, setTargetHint] = useState('');
   const [isIngesting, setIsIngesting] = useState(false);
   const [ingestStatus, setIngestStatus] = useState('');
+  const [ingestMode, setIngestMode] = useState('camera'); // 'camera' or 'upload'
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   // Sample quick queries for live demo
   const sampleQueries = [
@@ -102,6 +107,84 @@ export default function App() {
       setQuery(randomQuery);
       handleSearch(randomQuery);
     }, 2200);
+  };
+
+  const startCamera = async () => {
+    setCameraError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsCameraActive(true);
+    } catch (err) {
+      console.error("Camera access denied or unavailable:", err);
+      setCameraError('Camera access unavailable. You can use photo upload or grant browser camera permissions.');
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  // Turn off camera if switching tabs
+  useEffect(() => {
+    if (activeTab !== 'simulate') {
+      stopCamera();
+    }
+  }, [activeTab]);
+
+  const captureCameraFrame = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 720;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      setIsIngesting(true);
+      setIngestStatus('SAM 3.1 segmenting micro-objects from live camera stream...');
+
+      const formData = new FormData();
+      formData.append('frame', blob, 'camera_sweep.jpg');
+      formData.append('room_context', roomContext);
+      if (targetHint) formData.append('target_hint', targetHint);
+
+      try {
+        const res = await fetch('/api/ingest-frame', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setIngestStatus(`Success! SAM 3.1 indexed ${data.segments_found} object(s). Raw camera frame discarded (0MB storage).`);
+          fetchTimeline();
+          fetchStats();
+        } else {
+          setIngestStatus('Ingestion failed.');
+        }
+      } catch (err) {
+        setIngestStatus('Network error during frame ingestion.');
+      } finally {
+        setIsIngesting(false);
+      }
+    }, 'image/jpeg', 0.85);
   };
 
   const handleSimulateUpload = async (e) => {
@@ -190,11 +273,15 @@ export default function App() {
               <span className="font-extrabold tracking-wider text-lg bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
                 SpatialRecall
               </span>
-              <span className="px-2 py-0.5 text-[10px] uppercase font-semibold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded-full">
-                Meta Ray-Ban Wearable HUD
+              <span className="px-2.5 py-0.5 text-[10px] uppercase font-semibold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded-full flex items-center gap-1.5 shadow-sm">
+                <Smartphone className="w-3 h-3 text-indigo-400" />
+                <span>Smartphones</span>
+                <span className="text-gray-500">&</span>
+                <Glasses className="w-3 h-3 text-cyan-400" />
+                <span>Meta Glasses</span>
               </span>
             </div>
-            <p className="text-xs text-gray-400">Ctrl+F for the Physical World · Episodic Spatial Memory</p>
+            <p className="text-xs text-gray-400">Ctrl+F for the Physical World · Episodic Spatial Memory for Mobile & Wearables</p>
           </div>
         </div>
 
@@ -258,7 +345,7 @@ export default function App() {
                 : 'text-gray-400 hover:text-gray-200 hover:bg-hud-card'
             }`}
           >
-            📷 Ingest Wearable Feed
+            📷 Ingest Camera Feed
           </button>
         </div>
 
@@ -518,17 +605,51 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: SIMULATE WEARABLE SWEEP */}
+        {/* TAB 3: INGEST CAMERA FEED (SMARTPHONE OR SMART GLASSES) */}
         {activeTab === 'simulate' && (
           <div className="max-w-2xl mx-auto w-full bg-hud-card border border-hud-border rounded-2xl p-6 shadow-xl flex flex-col gap-5">
-            <div>
-              <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
-                <Camera className="w-5 h-5 text-cyan-400" />
-                Ingest New Wearable Camera Keyframe
-              </h2>
-              <p className="text-xs text-gray-400 mt-1">
-                Upload or capture any photo of your room or desk. SAM 3.1 will segment items and store compact coordinates. The raw photo will be discarded.
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-cyan-400" />
+                  Ingest Real-World Keyframe
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Use your phone/laptop camera or upload any scene. SAM 3.1 segments micro-objects into memory and discards the raw frame.
+                </p>
+              </div>
+
+              {/* Mode Toggle: Live Camera vs File Upload */}
+              <div className="flex items-center p-1 rounded-xl bg-hud-dark border border-hud-border text-xs">
+                <button
+                  onClick={() => {
+                    setIngestMode('camera');
+                    if (!isCameraActive) startCamera();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${
+                    ingestMode === 'camera'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  Live Camera
+                </button>
+                <button
+                  onClick={() => {
+                    setIngestMode('upload');
+                    stopCamera();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${
+                    ingestMode === 'upload'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Upload Photo
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -540,7 +661,7 @@ export default function App() {
                   type="text"
                   value={roomContext}
                   onChange={(e) => setRoomContext(e.target.value)}
-                  placeholder="e.g. Workshop Workbench, Kitchen Counter, Master Bedroom"
+                  placeholder="e.g. Home Office Desk, Kitchen Counter, Workshop Workbench"
                   className="w-full bg-hud-dark border border-hud-border rounded-xl px-4 py-2.5 text-sm text-gray-100 focus:border-cyan-400 outline-none"
                 />
               </div>
@@ -553,27 +674,112 @@ export default function App() {
                   type="text"
                   value={targetHint}
                   onChange={(e) => setTargetHint(e.target.value)}
-                  placeholder="e.g. blue screwdriver, passport, headphones"
+                  placeholder="e.g. car keys, wallet, wireless earbuds, water bottle"
                   className="w-full bg-hud-dark border border-hud-border rounded-xl px-4 py-2.5 text-sm text-gray-100 focus:border-cyan-400 outline-none"
                 />
               </div>
 
-              <label
-                htmlFor="scene-file-input"
-                className="relative border-2 border-dashed border-hud-border hover:border-cyan-500/50 rounded-xl p-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-hud-dark/50 overflow-hidden group"
-              >
-                <Camera className="w-10 h-10 text-cyan-400 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-gray-300">Click to upload a scene photo or webcam capture</p>
-                <p className="text-xs text-gray-500">Supports JPG, PNG (Simulates Ray-Ban 1-fps keyframe sweep)</p>
-                <input
-                  id="scene-file-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleSimulateUpload}
-                  disabled={isIngesting}
-                  className="hidden"
-                />
-              </label>
+              {/* CAMERA MODE VIEW */}
+              {ingestMode === 'camera' && (
+                <div className="flex flex-col gap-3">
+                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-hud-border flex items-center justify-center">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover ${!isCameraActive ? 'hidden' : ''}`}
+                    />
+
+                    {!isCameraActive && (
+                      <div className="flex flex-col items-center justify-center p-6 text-center gap-3">
+                        <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-400">
+                          <Video className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-200">Camera Feed Idle</p>
+                          <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                            Start your device camera to simulate smart glasses or phone sweeps over your desk or room.
+                          </p>
+                        </div>
+                        <button
+                          onClick={startCamera}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-black font-bold text-xs shadow-lg shadow-cyan-950/40 transition-all flex items-center gap-2"
+                        >
+                          <Video className="w-4 h-4" />
+                          Start Live Camera
+                        </button>
+                      </div>
+                    )}
+
+                    {/* HUD Target Reticle Overlay when active */}
+                    {isCameraActive && (
+                      <div className="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between">
+                        <div className="flex justify-between items-center text-[10px] text-cyan-400 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-md border border-cyan-800/50">
+                          <span className="flex items-center gap-1.5 font-mono">
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                            LIVE POV FEED · 1 FPS SWEEP
+                          </span>
+                          <span className="text-gray-400">Meta SAM 3.1 Ready</span>
+                        </div>
+                        <div className="self-center border border-dashed border-cyan-400/50 rounded-lg w-48 h-32 flex items-center justify-center text-[10px] text-cyan-300 font-mono">
+                          [ AIM AT OBJECT ]
+                        </div>
+                        <div className="text-[10px] text-gray-400 text-center bg-black/60 backdrop-blur-sm py-0.5 rounded">
+                          Frame automatically discarded after segmentation
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {cameraError && (
+                    <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{cameraError}</span>
+                    </div>
+                  )}
+
+                  {isCameraActive && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={captureCameraFrame}
+                        disabled={isIngesting}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 hover:from-cyan-400 hover:to-teal-300 text-black font-bold text-sm shadow-lg shadow-cyan-950/50 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Camera className="w-4 h-4" />
+                        {isIngesting ? 'Segmenting with SAM 3.1...' : 'Capture Keyframe & Ingest'}
+                      </button>
+                      <button
+                        onClick={stopCamera}
+                        className="px-4 py-3 rounded-xl bg-hud-dark border border-hud-border hover:border-gray-600 text-gray-300 text-sm font-medium transition-all flex items-center gap-1.5"
+                      >
+                        <VideoOff className="w-4 h-4" />
+                        Stop Camera
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* UPLOAD PHOTO MODE VIEW */}
+              {ingestMode === 'upload' && (
+                <label
+                  htmlFor="scene-file-input"
+                  className="relative border-2 border-dashed border-hud-border hover:border-cyan-500/50 rounded-xl p-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-hud-dark/50 overflow-hidden group"
+                >
+                  <Camera className="w-10 h-10 text-cyan-400 group-hover:scale-110 transition-transform" />
+                  <p className="text-sm font-medium text-gray-300">Click to upload a scene photo or webcam capture</p>
+                  <p className="text-xs text-gray-500">Supports JPG, PNG (Simulates camera keyframe sweep)</p>
+                  <input
+                    id="scene-file-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleSimulateUpload}
+                    disabled={isIngesting}
+                    className="hidden"
+                  />
+                </label>
+              )}
 
               {isIngesting && (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-sm">
