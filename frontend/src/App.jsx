@@ -16,6 +16,7 @@ export default function App() {
 
   // Live Camera states
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [showRawFeed, setShowRawFeed] = useState(false); // Default false: Zero-Surveillance Privacy Shield
   const [cameraError, setCameraError] = useState('');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -485,24 +486,78 @@ export default function App() {
                       </div>
                     </>
                   ) : (
-                    /* Live Webcam or Standby View */
+                    /* Live Sentinel Viewport */
                     <>
+                      {/* Hidden Video element processing frames in RAM */}
                       <video
                         ref={videoRef}
                         autoPlay
                         playsInline
                         muted
-                        className={`w-full h-full object-cover ${!isCameraActive ? 'hidden' : ''}`}
+                        className={`w-full h-full object-cover ${isCameraActive && showRawFeed ? '' : 'hidden'}`}
                       />
 
-                      {isCameraActive && (
-                        <div className="absolute inset-0 pointer-events-none p-5 flex flex-col justify-between">
-                          <div className="flex justify-between items-center text-[10px] text-cyan-400 bg-black/70 backdrop-blur-sm px-3 py-1 rounded-lg border border-cyan-800/60 font-mono">
-                            <span className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                              PERIMETER SCANNING · 10S ROLLING RAM BUFFER
+                      {/* ZERO-SURVEILLANCE PRIVACY SHIELD (DEFAULT WHEN ACTIVE) */}
+                      {isCameraActive && !showRawFeed && (
+                        <div className="absolute inset-0 bg-gradient-to-b from-[#090d16] via-[#0b101c] to-[#070a12] flex flex-col items-center justify-between p-6 overflow-hidden">
+                          {/* Top Radar Bar */}
+                          <div className="w-full flex items-center justify-between text-[11px] font-mono text-cyan-400 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-cyan-800/50">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                              <span className="font-bold">AEGIS RADAR ENGAGED</span>
                             </span>
-                            <span className="text-gray-400">Meta SAM 3.1 Active</span>
+                            <span className="text-gray-400">Zero-Surveillance Guarantee</span>
+                            <span className="text-emerald-400 font-semibold">10s Rolling Purge</span>
+                          </div>
+
+                          {/* Center Privacy Holographic Sonar */}
+                          <div className="relative flex flex-col items-center justify-center">
+                            {/* Concentric Radar Rings */}
+                            <div className="absolute w-64 h-64 rounded-full border border-cyan-500/10 animate-ping"></div>
+                            <div className="absolute w-48 h-48 rounded-full border border-cyan-500/20"></div>
+                            <div className="absolute w-32 h-32 rounded-full border border-indigo-500/30"></div>
+                            
+                            {/* Central Shield Icon */}
+                            <div className="relative z-10 p-5 rounded-3xl bg-gradient-to-tr from-cyan-950/80 to-indigo-950/80 border-2 border-cyan-500/50 shadow-2xl shadow-cyan-950/60 flex flex-col items-center gap-2">
+                              <ShieldCheck className="w-12 h-12 text-cyan-400" />
+                              <span className="text-xs font-extrabold uppercase tracking-widest text-cyan-300">
+                                Privacy Shield Active
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Live Sensor Telemetry Strip */}
+                          <div className="w-full grid grid-cols-3 gap-3 text-center text-xs">
+                            <div className="p-2.5 rounded-xl bg-gray-900/80 border border-gray-800/80">
+                              <p className="text-[10px] text-gray-500 uppercase font-semibold">Live Camera Feed</p>
+                              <p className="font-bold text-rose-400 flex items-center justify-center gap-1 mt-0.5">
+                                <Lock className="w-3 h-3" /> MASKED (Private)
+                              </p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-gray-900/80 border border-gray-800/80">
+                              <p className="text-[10px] text-gray-500 uppercase font-semibold">Perimeter Sensor</p>
+                              <p className="font-bold text-emerald-400 mt-0.5">
+                                ACTIVE (0.1 m/s)
+                              </p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-gray-900/80 border border-gray-800/80">
+                              <p className="text-[10px] text-gray-500 uppercase font-semibold">Disk Storage</p>
+                              <p className="font-bold text-cyan-400 mt-0.5">
+                                0.00 MB Saved
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* RAW FEED PEEK (ONLY IF DELIBERATELY TOGGLED) */}
+                      {isCameraActive && showRawFeed && (
+                        <div className="absolute inset-0 pointer-events-none p-5 flex flex-col justify-between">
+                          <div className="flex justify-between items-center text-[10px] text-amber-400 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-amber-800/60 font-mono">
+                            <span className="flex items-center gap-1.5 font-bold">
+                              ⚠️ RAW FEED PEEK (ALIGNING ANGLE)
+                            </span>
+                            <span className="text-gray-400">Meta SAM 3.1 Tracking</span>
                           </div>
 
                           <div className="self-center border-2 border-dashed border-cyan-400/50 rounded-2xl w-64 h-48 flex flex-col items-center justify-center text-xs text-cyan-300 font-mono gap-1">
@@ -510,12 +565,13 @@ export default function App() {
                             <span className="text-[10px] text-gray-400">Handbag / Laptop / Phone</span>
                           </div>
 
-                          <div className="text-[11px] text-gray-400 text-center bg-black/70 backdrop-blur-sm py-1 rounded-lg border border-gray-800">
-                            Unflagged frames auto-purged from RAM every 10s · Zero persistent storage
+                          <div className="text-[11px] text-gray-400 text-center bg-black/80 backdrop-blur-sm py-1 rounded-lg border border-gray-800">
+                            Auto-purged every 10s · Zero persistent storage
                           </div>
                         </div>
                       )}
 
+                      {/* CAMERA IDLE STATE */}
                       {!isCameraActive && (
                         <div className="flex flex-col items-center justify-center p-8 text-center gap-3">
                           <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-400">
@@ -524,15 +580,15 @@ export default function App() {
                           <div>
                             <p className="text-base font-bold text-gray-200">Sentinel Radar in Standby</p>
                             <p className="text-xs text-gray-400 mt-1 max-w-sm">
-                              Start your laptop or phone camera to simulate an active table guard or walking bodyguard.
+                              Start your device camera to engage the 24/7 Zero-Surveillance Bodyguard. The camera feed remains 100% masked to protect your privacy.
                             </p>
                           </div>
                           <button
                             onClick={startCamera}
                             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-black font-bold text-xs shadow-lg shadow-cyan-950/40 transition-all flex items-center gap-2"
                           >
-                            <Video className="w-4 h-4" />
-                            Start Live Camera Stream
+                            <ShieldCheck className="w-4 h-4" />
+                            Engage Aegis Bodyguard (Camera Guard)
                           </button>
                         </div>
                       )}
@@ -544,20 +600,35 @@ export default function App() {
                 <div className="p-4 bg-gray-900/80 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     {isCameraActive ? (
-                      <button
-                        onClick={stopCamera}
-                        className="px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold flex items-center gap-1.5 transition-all"
-                      >
-                        <VideoOff className="w-4 h-4" />
-                        Stop Camera
-                      </button>
+                      <>
+                        <button
+                          onClick={stopCamera}
+                          className="px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                        >
+                          <VideoOff className="w-4 h-4" />
+                          Disengage Guard
+                        </button>
+
+                        {/* Privacy Toggle: Peek Feed vs Mask */}
+                        <button
+                          onClick={() => setShowRawFeed(!showRawFeed)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                            showRawFeed
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                          }`}
+                        >
+                          {showRawFeed ? <Lock className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          {showRawFeed ? 'Mask Video (Privacy Mode)' : 'Peek Camera Angle'}
+                        </button>
+                      </>
                     ) : (
                       <button
                         onClick={startCamera}
                         className="px-3.5 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
                       >
-                        <Video className="w-4 h-4" />
-                        Start Camera
+                        <ShieldCheck className="w-4 h-4" />
+                        Engage Bodyguard
                       </button>
                     )}
                   </div>
