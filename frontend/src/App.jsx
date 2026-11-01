@@ -558,18 +558,22 @@ export default function App() {
                 />
               </div>
 
-              <div className="border-2 border-dashed border-hud-border hover:border-cyan-500/50 rounded-xl p-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-hud-dark/50">
-                <Camera className="w-10 h-10 text-cyan-400" />
+              <label
+                htmlFor="scene-file-input"
+                className="relative border-2 border-dashed border-hud-border hover:border-cyan-500/50 rounded-xl p-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-hud-dark/50 overflow-hidden group"
+              >
+                <Camera className="w-10 h-10 text-cyan-400 group-hover:scale-110 transition-transform" />
                 <p className="text-sm font-medium text-gray-300">Click to upload a scene photo or webcam capture</p>
                 <p className="text-xs text-gray-500">Supports JPG, PNG (Simulates Ray-Ban 1-fps keyframe sweep)</p>
                 <input
+                  id="scene-file-input"
                   type="file"
                   accept="image/*"
                   onChange={handleSimulateUpload}
                   disabled={isIngesting}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  className="hidden"
                 />
-              </div>
+              </label>
 
               {isIngesting && (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-sm">
