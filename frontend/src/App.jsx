@@ -34,12 +34,31 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [assistantResult, setAssistantResult] = useState(null);
 
-  // Fetch initial data
+  // Fetch initial data & unlock mobile AudioContext on first touch
   useEffect(() => {
     fetchIncidents();
     fetchHealth();
     const interval = setInterval(fetchBufferStatus, 3000);
-    return () => clearInterval(interval);
+
+    // Mobile gesture unlock for Web Audio API
+    const unlockAudio = () => {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
   }, []);
 
   const fetchHealth = async () => {
@@ -224,17 +243,31 @@ export default function App() {
   const startCamera = async () => {
     setCameraError('');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
-      });
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError('Camera access requires HTTPS or Chrome Flag on mobile LAN (see instructions).');
+        setIsCameraActive(false);
+        return;
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (camErr) {
+        // Fallback to any available camera (front or rear)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       setIsCameraActive(true);
     } catch (err) {
-      setCameraError('Camera access unavailable. Grant permissions to view live sentinel stream.');
+      setCameraError('Camera access blocked. Please grant camera permission in your mobile browser.');
       setIsCameraActive(false);
     }
   };
@@ -732,6 +765,12 @@ export default function App() {
                             <ShieldCheck className="w-4 h-4" />
                             Engage Spatial Sentry Guard (Camera Guard)
                           </button>
+
+                          {cameraError && (
+                            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs text-center max-w-sm">
+                              <p className="font-semibold mb-1">⚠️ {cameraError}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
