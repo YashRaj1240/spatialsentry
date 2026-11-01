@@ -16,6 +16,7 @@ scenes = [
     ("office_desk.jpg", (44, 62, 80), (253, 121, 168), "OFFICE WORKSTATION - 12:50 PM", "AirPods Pro on Notebook"),
     ("living_room.jpg", (53, 59, 72), (253, 203, 110), "LIVING ROOM COFFEE TABLE - 10:45 AM", "Reading Glasses near Mug"),
     ("garage_bench.jpg", (47, 53, 66), (255, 71, 87), "GARAGE WORKBENCH - 01:15 PM", "Screwdriver on Blue Towel"),
+    ("cafe_theft_intercept.jpg", (50, 20, 25), (255, 71, 87), "CAFE PERIMETER BREACH - 10:48 AM", "High-Velocity Handbag Snatch Intercepted"),
 ]
 
 for filename, bg_color, accent, title, sub in scenes:

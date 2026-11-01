@@ -12,6 +12,28 @@ def get_connection():
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
+    
+    # 1. Incidents Ledger (Frozen evidence from ephemeral RAM buffer)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS incidents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        incident_type TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        target_item TEXT NOT NULL,
+        location_context TEXT NOT NULL,
+        suspect_description TEXT,
+        displacement_velocity REAL,
+        bounding_box TEXT NOT NULL,
+        segmentation_polygon TEXT,
+        frame_path TEXT,
+        evidence_thumbnail TEXT,
+        ai_forensic_report TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    # 2. Ambient Physical Memory (For ambient peace-of-mind checks)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS spatial_memory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,10 +50,70 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_incident_time ON incidents(timestamp);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_obj_name ON spatial_memory(object_name);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON spatial_memory(timestamp);")
     conn.commit()
     conn.close()
+
+def insert_incident(
+    incident_type: str,
+    severity: str,
+    target_item: str,
+    location_context: str,
+    bounding_box: List[int],
+    ai_forensic_report: str,
+    suspect_description: Optional[str] = None,
+    displacement_velocity: float = 1.0,
+    segmentation_polygon: Optional[List[List[int]]] = None,
+    frame_path: Optional[str] = None,
+    evidence_thumbnail: Optional[str] = None,
+    timestamp: Optional[str] = None
+) -> int:
+    if timestamp is None:
+        timestamp = datetime.now().isoformat()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO incidents (
+            incident_type, severity, target_item, location_context,
+            suspect_description, displacement_velocity, bounding_box,
+            segmentation_polygon, frame_path, evidence_thumbnail,
+            ai_forensic_report, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        incident_type,
+        severity,
+        target_item,
+        location_context,
+        suspect_description,
+        displacement_velocity,
+        json.dumps(bounding_box),
+        json.dumps(segmentation_polygon) if segmentation_polygon else None,
+        frame_path,
+        evidence_thumbnail,
+        ai_forensic_report,
+        timestamp
+    ))
+    incident_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return incident_id
+
+def get_all_incidents(limit: int = 50) -> List[Dict[str, Any]]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM incidents ORDER BY timestamp DESC LIMIT ?", (limit,))
+    rows = cursor.fetchall()
+    results = []
+    for row in rows:
+        item = dict(row)
+        item["bounding_box"] = json.loads(item["bounding_box"]) if item["bounding_box"] else []
+        item["segmentation_polygon"] = json.loads(item["segmentation_polygon"]) if item["segmentation_polygon"] else []
+        results.append(item)
+    conn.close()
+    return results
 
 def insert_memory(
     session_id: str,
@@ -86,112 +168,78 @@ def get_all_memories(limit: int = 100) -> List[Dict[str, Any]]:
     conn.close()
     return results
 
-def get_memory_by_id(memory_id: int) -> Optional[Dict[str, Any]]:
+def seed_default_sentinel_data():
+    """Seeds realistic default incidents and memories for live demonstration"""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM spatial_memory WHERE id = ?", (memory_id,))
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return None
-    item = dict(row)
-    item["bounding_box"] = json.loads(item["bounding_box"]) if item["bounding_box"] else []
-    item["segmentation_polygon"] = json.loads(item["segmentation_polygon"]) if item["segmentation_polygon"] else []
-    return item
-
-def search_memories_keyword(keyword: str) -> List[Dict[str, Any]]:
-    conn = get_connection()
-    cursor = conn.cursor()
-    search_term = f"%{keyword.lower()}%"
-    cursor.execute("""
-        SELECT * FROM spatial_memory 
-        WHERE object_name LIKE ? OR category LIKE ? OR room_context LIKE ?
-        ORDER BY timestamp DESC
-    """, (search_term, search_term, search_term))
-    rows = cursor.fetchall()
-    results = []
-    for row in rows:
-        item = dict(row)
-        item["bounding_box"] = json.loads(item["bounding_box"]) if item["bounding_box"] else []
-        item["segmentation_polygon"] = json.loads(item["segmentation_polygon"]) if item["segmentation_polygon"] else []
-        results.append(item)
-    conn.close()
-    return results
-
-def seed_default_memories():
-    """Seeds realistic episodic memories for demonstration if empty"""
-    conn = get_connection()
-    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM incidents")
+    incident_count = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM spatial_memory")
-    count = cursor.fetchone()[0]
+    memory_count = cursor.fetchone()[0]
     conn.close()
-
-    if count > 0:
-        return
 
     now = datetime.now()
-    demo_objects = [
-        {
-            "session_id": "demo_morning_sweep",
-            "object_name": "car keys with black leather fob",
-            "category": "personal_items",
-            "room_context": "Kitchen counter, left of the stainless steel toaster",
-            "confidence": 0.98,
-            "bounding_box": [340, 210, 430, 310],
-            "segmentation_polygon": [[340, 210], [420, 215], [430, 305], [345, 300]],
-            "thumbnail_path": "thumbnails/keys.jpg",
-            "frame_path": "sample_scenes/kitchen_counter.jpg",
-            "timestamp": (now - timedelta(hours=2, minutes=14)).isoformat()
-        },
-        {
-            "session_id": "demo_morning_sweep",
-            "object_name": "leather wallet (brown bifold)",
-            "category": "personal_items",
-            "room_context": "Entryway console table, inside the ceramic catch-all bowl",
-            "confidence": 0.96,
-            "bounding_box": [180, 290, 290, 390],
-            "segmentation_polygon": [[185, 295], [285, 290], [290, 385], [180, 380]],
-            "thumbnail_path": "thumbnails/wallet.jpg",
-            "frame_path": "sample_scenes/entryway.jpg",
-            "timestamp": (now - timedelta(hours=4, minutes=30)).isoformat()
-        },
-        {
-            "session_id": "demo_office_sweep",
-            "object_name": "blue wireless airpods pro case",
-            "category": "electronics",
-            "room_context": "Home office desk, sitting directly on top of the black notebook",
-            "confidence": 0.99,
-            "bounding_box": [450, 180, 520, 240],
-            "segmentation_polygon": [[455, 182], [518, 180], [516, 238], [452, 236]],
-            "thumbnail_path": "thumbnails/airpods.jpg",
-            "frame_path": "sample_scenes/office_desk.jpg",
-            "timestamp": (now - timedelta(hours=1, minutes=5)).isoformat()
-        },
-        {
-            "session_id": "demo_office_sweep",
-            "object_name": "reading glasses with tortoiseshell frame",
-            "category": "personal_items",
-            "room_context": "Living room coffee table, next to the ceramic coffee mug",
-            "confidence": 0.94,
-            "bounding_box": [260, 320, 370, 380],
-            "segmentation_polygon": [[262, 325], [365, 320], [368, 375], [260, 378]],
-            "thumbnail_path": "thumbnails/glasses.jpg",
-            "frame_path": "sample_scenes/living_room.jpg",
-            "timestamp": (now - timedelta(hours=3, minutes=12)).isoformat()
-        },
-        {
-            "session_id": "demo_garage_sweep",
-            "object_name": "phillips magnetic screwdriver (yellow handle)",
-            "category": "tools",
-            "room_context": "Garage workbench, resting on the blue shop towel",
-            "confidence": 0.97,
-            "bounding_box": [510, 140, 640, 220],
-            "segmentation_polygon": [[515, 145], [635, 140], [638, 215], [512, 218]],
-            "thumbnail_path": "thumbnails/screwdriver.jpg",
-            "frame_path": "sample_scenes/garage_bench.jpg",
-            "timestamp": (now - timedelta(minutes=45)).isoformat()
-        }
-    ]
 
-    for obj in demo_objects:
-        insert_memory(**obj)
+    if incident_count == 0:
+        demo_incidents = [
+            {
+                "incident_type": "theft_attempt",
+                "severity": "CRITICAL",
+                "target_item": "Brown Leather Handbag",
+                "location_context": "Coffee Shop Table (Outdoor Patio, 4th & Pine)",
+                "suspect_description": "Suspect in grey jacket & white sneakers, rapid right-hand grab",
+                "displacement_velocity": 4.8,
+                "bounding_box": [320, 180, 490, 390],
+                "segmentation_polygon": [[320, 185], [480, 180], [490, 385], [325, 390]],
+                "frame_path": "sample_scenes/cafe_theft_intercept.jpg",
+                "evidence_thumbnail": "thumbnails/wallet.jpg",
+                "ai_forensic_report": "PERIMETER BREACH INTERCEPTED: High-velocity snatch vector detected on protected handbag while user gaze was averted. Audible deterrent siren triggered at 85dB. Suspect aborted grab and fled eastward on foot.",
+                "timestamp": (now - timedelta(minutes=24)).isoformat()
+            },
+            {
+                "incident_type": "unattended_item_breach",
+                "severity": "HIGH",
+                "target_item": "MacBook Pro 16 Space Gray",
+                "location_context": "University Library (2nd Floor Quiet Study Desk)",
+                "suspect_description": "Unidentified individual lingered for 12s, touched corner of device",
+                "displacement_velocity": 1.4,
+                "bounding_box": [220, 240, 510, 420],
+                "segmentation_polygon": [[225, 245], [505, 240], [510, 415], [220, 418]],
+                "frame_path": "sample_scenes/office_desk.jpg",
+                "evidence_thumbnail": "thumbnails/airpods.jpg",
+                "ai_forensic_report": "UNAUTHORIZED CONTACT ALERT: Individual attempted lifting laptop while user was away from desk. Pre-alert haptic warning pulsed, causing individual to withdraw hand.",
+                "timestamp": (now - timedelta(hours=2, minutes=15)).isoformat()
+            }
+        ]
+        for inc in demo_incidents:
+            insert_incident(**inc)
+
+    if memory_count == 0:
+        demo_memories = [
+            {
+                "session_id": "ambient_sentinel_morning",
+                "object_name": "apartment keys with carbon fob",
+                "category": "personal_items",
+                "room_context": "Kitchen island, resting beside the ceramic bowl",
+                "confidence": 0.99,
+                "bounding_box": [340, 210, 430, 310],
+                "segmentation_polygon": [[340, 210], [420, 215], [430, 305], [345, 300]],
+                "thumbnail_path": "thumbnails/keys.jpg",
+                "frame_path": "sample_scenes/kitchen_counter.jpg",
+                "timestamp": (now - timedelta(hours=3, minutes=10)).isoformat()
+            },
+            {
+                "session_id": "ambient_sentinel_morning",
+                "object_name": "clothing iron and power cord",
+                "category": "home_safety",
+                "room_context": "Laundry room board, unplugged and set upright",
+                "confidence": 0.98,
+                "bounding_box": [180, 290, 290, 390],
+                "segmentation_polygon": [[185, 295], [285, 290], [290, 385], [180, 380]],
+                "thumbnail_path": "thumbnails/wallet.jpg",
+                "frame_path": "sample_scenes/entryway.jpg",
+                "timestamp": (now - timedelta(hours=4, minutes=5)).isoformat()
+            }
+        ]
+        for mem in demo_memories:
+            insert_memory(**mem)

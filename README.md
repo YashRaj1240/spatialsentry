@@ -1,77 +1,103 @@
-# 📱👓 SpatialRecall — Ctrl+F for the Physical World
+# 🛡️ AegisAI — 24/7 Ephemeral AI Bodyguard & Anti-Theft Sentinel
 
-> **Universal Episodic Spatial-Temporal Memory Engine for Smartphones & Meta Smart Glasses**  
-> *Built for the Meta Global AI Developer Hackathon 2026 · Track: Indie Developer*
+> **Continuous Personal Safety, Snatch Deterrence & Ambient Memory Powered by Meta AI**  
+> *Built for the Meta Global AI Developer Hackathon 2026 · Track: Indie Developer ($150,000 1st Prize)*
 
-[![Meta Model API](https://img.shields.io/badge/Meta%20Model%20API-SAM%203.1%20%7C%20Muse%20Spark-0081FB?logo=meta)](https://dev.meta.ai/)
+[![Meta Model API](https://img.shields.io/badge/Meta%20AI-SAM%203.1%20%7C%20Muse%20%7C%20Llama%203-0081FB?logo=meta)](https://dev.meta.ai/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind-61DAFB?logo=react)](https://react.dev/)
-[![Storage](https://img.shields.io/badge/Storage-%3C15MB%20%2F%20day-emerald)](https://github.com/)
-[![Platforms](https://img.shields.io/badge/Platforms-Smartphones%20%7C%20Meta%20Ray--Ban%20%7C%20Web-purple)](https://github.com/)
+[![Privacy](https://img.shields.io/badge/Privacy-10s%20RAM%20Auto--Purge-emerald)](https://github.com/)
+[![Platforms](https://img.shields.io/badge/Hardware-Laptops%20%7C%20Smartphones%20%7C%20Meta%20Ray--Ban-purple)](https://github.com/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ---
 
-## 🚀 The Vision: Searchable Physical Reality for 5 Billion People
+## 🚨 The Problem: An Epidemic of Snatch Theft & The Privacy Dilemma
 
-Every human on Earth loses their keys, wallet, AirPods, tools, or medications right when they need to leave the house. People spend an average of **15 to 30 minutes every week retracing their steps in pure frustration**.
+Across major cities worldwide (London, Paris, NYC, San Francisco, Delhi, Barcelona), **phone and handbag snatching has surged dramatically**. People feel anxious leaving their laptop on a cafe table, walking alone at night, or setting their purse down for even 30 seconds.
 
-While smartphones and smart glasses (like **Meta Ray-Bans**) can see what is in front of you *right now*, **current AI has amnesia**—it has zero memory of what you looked at 2 hours ago.
-
-**SpatialRecall** bridges the gap across the entire consumer hardware spectrum:
-1. **For Everyday Smartphone Users (Mass Market):** Open the camera for a 2-second sweep of your desk or room before you leave. SpatialRecall indexes your items in the background.
-2. **For Smart Glasses Wearers (Meta Ray-Ban & Quest):** Runs passively and hands-free, automatically tracking what you set down throughout your day.
-
-When you lose an item hours later, you speak naturally into your glasses or phone, and Meta AI instantly recalls the exact moment and location where your item was last seen, highlighting it with glowing pixel precision on an interactive visual HUD.
+Yet, people refuse to wear continuous body cameras for one simple reason: **PRIVACY**. Nobody wants their personal life recorded 24/7, and nobody wants gigabytes of useless video clogging their storage.
 
 ---
 
-## ⚡ The Breakthrough: Ephemeral Zero-Storage Architecture (<15MB/day)
+## 🛡️ The Breakthrough: AegisAI & The Ephemeral Rolling Buffer
 
-A naive system that saves continuous 1080p video would devour **50+ GB of storage per day** and drain wearable batteries in an hour.
+**AegisAI** provides **24/7 proactive personal protection without ever recording your private life**.
 
-**SpatialRecall** uses an **Ephemeral Metadata Architecture**:
-1. **Scene-Change Keyframing:** Only extracts 1 frame every 3–5 seconds when motion or gaze shifts.
-2. **Instant Raw Video Discard:** Raw video is processed in RAM and **permanently deleted immediately**.
-3. **Micro-Crop & SQLite Metadata Graph:** Only stores a tiny 30KB thumbnail crop and lightweight JSON bounding box coordinates:
-   $$\text{Daily Storage} \approx 100 \text{ objects} \times (1\text{ KB JSON} + 30\text{ KB thumb}) \approx \mathbf{3.1\text{ MB per day!}}$$
+```
+[Camera Stream (Phone / Laptop / Meta Ray-Ban)]
+             │
+             ▼
+   [10-Second Rolling RAM Buffer]
+   (Continuously overwritten in memory · 0 MB saved to disk)
+             │
+      ┌──────┴───────────────────────────────────┐
+      │                                          │
+[Normal Calm Activity]              [High-Velocity Snatch Attempt (>3.0 m/s)]
+      │                                          │
+      ▼                                          ▼
+[Auto-Purged Every 10s]              [🚨 EMERGENCY THREAT INTERCEPT!]
+(Permanently destroyed in RAM)       • 85dB Deterrent Siren triggered
+                                     • Meta SAM 3.1 locks suspect boundary
+                                     • 10s Incident Evidence frozen to Vault
+                                     • Forensic report logged with GPS time
+```
 
 ---
 
-## 🏗️ System Architecture
+## 🎯 The Three Core Pillars
+
+### 1. 🚨 Active Perimeter Guard & Anti-Theft Sentinel
+- **Cafe / Library Table Guard:** Prop your phone on a table or leave your laptop open while you look away or visit the restroom.
+- **Snatch Detection Vector:** If an unauthorized hand grabs your bag, phone, or laptop at high displacement velocity (>3.0 m/s), an **instant deterrent siren** sounds, startling the thief into dropping the item.
+- **Suspect Tagging:** **Meta SAM 3.1** instantly segments the suspect's hand, jacket, and direction of flight, locking an unalterable forensic evidence card.
+
+### 2. 🔒 Zero-Surveillance Privacy (10-Second RAM Buffer)
+- Video exists **only in transient RAM memory** for 10 seconds.
+- If no threat or safety event occurs, the video frames are **automatically overwritten and destroyed**.
+- Your private life, conversations, and home are **never saved to disk or uploaded to the cloud**.
+
+### 3. 🤝 Ambient Memory & Peace-of-Mind Guardian
+- When you are distracted, AegisAI quietly verifies important safety details:
+  - *"Did I unplug the iron before leaving?"* → Verified at 8:14 AM.
+  - *"Did someone touch my laptop while I was at the restroom?"* → Reports unauthorized contact attempt.
+  - *"Where are my apartment keys?"* → Verified on the kitchen counter.
+
+---
+
+## 🏗️ Technical Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Wearable["1. Wearable Ingestion (Meta Ray-Ban / Phone)"]
-        Stream["Passive Camera Stream & Mic"]
+    subgraph Capture["1. Ambient Capture (Smartphones / Meta Glasses)"]
+        Stream["Live Video Sensor Stream (1-30 FPS)"]
     end
 
-    subgraph Perception["2. Meta AI Perception Engine"]
-        Stream --> Buffer["In-Memory Ephemeral Buffer"]
-        Buffer --> SAM["🎯 Meta SAM 3.1 (Segment Anything)<br/>Extracts pixel-perfect masks of micro-objects"]
-        Buffer -- Discard --> Deleted["🗑️ Raw Video Instantly Deleted (0MB Stored)"]
-        
-        SAM --> Crop["Crop Micro-Thumbnail (30KB)"]
-        Crop --> DB["SQLite Spatial Memory Graph<br/>Stores: { object, room_context, bbox, polygon, timestamp }"]
+    subgraph MemoryEngine["2. Aegis Ephemeral Engine (Zero-Disk)"]
+        Stream --> RAM["In-Memory Circular Buffer (deque maxlen=20)"]
+        RAM --> Monitor["Velocity Vector & Perimeter Analyzer"]
+        Monitor -- "No Threat (99.9% of time)" --> Purge["🗑️ Auto-Purge from RAM (0 MB Stored)"]
     end
 
-    subgraph Recall["3. Natural Language Spatial Recall"]
-        VoiceQuery["🎙️ 'Where did I leave my car keys?'"] --> MuseVoice["Meta Muse Voice Transcribe"]
-        MuseVoice --> MuseSpark["🧠 Meta Muse Spark (Spatial Reasoning Engine)<br/>Searches memory graph by recency & context"]
+    subgraph ThreatPerception["3. Meta AI Threat Perception"]
+        Monitor -- "Snatch or Breach Detected!" --> Freeze["🚨 Freeze 10s Buffer into Evidence Vault"]
+        Freeze --> SAM["Meta SAM 3.1: Zero-Shot Suspect & Target Segmentation"]
+        Freeze --> Siren["Audible Web Audio Deterrent Siren (880Hz Warble)"]
+        Freeze --> MuseSpark["Meta Muse Spark / Llama 3: Generate Forensic Incident Ledger"]
     end
 
-    subgraph VisualHUD["4. Interactive Spatial HUD Display"]
-        MuseSpark --> HUD["Ray-Ban Visual Recall Screen:<br/>• Exact keyframe replay<br/>• Glowing SAM 3.1 neon polygon overlay<br/>• 'Seen 2 hours ago on kitchen counter left of toaster'"]
+    subgraph UserHUD["4. Interactive Sentinel HUD"]
+        Siren --> HUD["Active Radar HUD:<br/>• Flashing Emergency Banner<br/>• Neon SAM 3.1 Suspect Overlay<br/>• Instant Incident Evidence Card"]
     end
 ```
 
 ---
 
-## 🛠️ Meta Models Used
+## 🛠️ Meta AI Models Used
 
-* **Meta SAM 3.1 (Segment Anything):** Performs zero-shot spatial segmentation on micro-objects (keys, wallets, tools, chargers), generating pixel-accurate boundary polygons.
-* **Meta Muse Voice Transcribe:** Transcribes natural spoken questions in noisy environments without touching a screen.
-* **Meta Muse Spark:** Performs temporal and spatial reasoning over candidate memories, resolving ambiguous room contexts and recency.
+* **Meta SAM 3.1 (Segment Anything):** Performs real-time pixel segmentation on protected valuables and suspect contact points, calculating perimeter intrusions.
+* **Meta Muse Voice Transcribe:** Provides hands-free emergency SOS commands and voice queries.
+* **Meta Muse Spark & Llama 3:** Multimodal temporal reasoning and forensic threat incident classification.
 
 ---
 
@@ -80,51 +106,33 @@ flowchart TD
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- Meta Model API Key ([dev.meta.ai](https://dev.meta.ai))
 
-### 1. Clone & Setup Backend
+### 1. Start Backend API
 ```bash
-git clone https://github.com/YashRaj1240/spatialrecall.git
-cd spatialrecall/backend
-
-# Create .env file (runs in realistic simulation mode out-of-the-box if key is omitted)
-cp .env.example .env
-
-# Run FastAPI Server
-python -m uvicorn app.main:app --reload --port 8000
+cd backend
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8000
 ```
-* Backend API Documentation: `http://127.0.0.1:8000/docs`
-* Storage & System Health: `http://127.0.0.1:8000/api/health`
 
-### 2. Setup Frontend
+### 2. Start Frontend Sentinel HUD
 ```bash
-cd ../frontend
+cd frontend
 npm install
-npm run dev
+npm run dev -- --port 3000
 ```
-* Open your browser at: `http://localhost:3000`
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
 ---
 
-## 🎬 3-Minute Demo Script
+## 🎬 3-Minute Hackathon Demo Script (For Judges)
 
-* **0:00 - 0:40 (The Problem):** 
-  * "Everyone has lost their car keys or wallet 5 minutes before leaving the house. Current AI assistants can't help because they have zero memory of the physical world."
-* **0:40 - 1:45 (The Magic Moment):**
-  * Click **"Hands-Free Voice"** and speak: *"Where did I leave my car keys?"*
-  * **BOOM:** The screen updates instantly with the kitchen counter keyframe. **SAM 3.1** paints a pulsating, glowing cyan polygon mask directly over the keys.
-  * Muse Spark explains: *"Observed 2 hours and 14 minutes ago on the kitchen counter, left of the toaster."*
-* **1:45 - 2:20 (The Timeline & Scale):**
-  * Click **"Spatial Timeline"** to show all indexed personal items (wallet, AirPods, reading glasses, screwdriver) indexed throughout the day.
-* **2:20 - 3:00 (The Edge Architecture):**
-  * Show the live storage metric: **3.2 MB total footprint**.
-  * Highlight that raw video is discarded immediately, preserving 100% user privacy and enabling real-world deployment on Meta Ray-Ban smart glasses.
-
----
-
-## 🏆 Hackathon Submission Checklist
-
-- [x] **New Work Only:** Clean repository created during the hackathon window (Oct 26 - Nov 4).
-- [x] **Problem Statement Fit:** 100% aligned with *"Build for Your World"* (freeing up mental space) and *"Push the Frontier"* (giving machines episodic physical memory).
-- [x] **Meta AI Tooling:** Deep synergy of **SAM 3.1**, **Muse Voice Transcribe**, and **Muse Spark**.
-- [x] **Verifiable Architecture:** Privacy-first, deterministic spatial-temporal indexing with SQLite.
+* **0:00 - 0:30 (The Hook & Problem):**
+  *"Every day, thousands of phones, laptops, and bags are snatched in cafes and on streets. People can't use body-cams because of privacy. Meet AegisAI: the 24/7 AI bodyguard that watches your back without ever storing your private life."*
+* **0:30 - 1:15 (The Rolling Buffer):**
+  *Show the Live Sentinel Radar HUD. Explain the 10-second rolling RAM buffer showing 0MB persistent disk storage.*
+* **1:15 - 2:00 (The Action: Simulated Snatch Intercept):**
+  *Arm the perimeter. Click 'Test Intercept: Simulate Handbag Snatch'. The siren blares! The screen flashes red! Meta SAM 3.1 locks the neon suspect polygon over the snatching hand.*
+* **2:00 - 2:30 (Evidence Vault & Forensic Ledger):**
+  *Click the 'Incident Evidence Vault' tab. Show the frozen 10-second proof with displacement velocity (4.6 m/s) and AI incident summary.*
+* **2:30 - 3:00 (Ambient Memory & Closing):**
+  *Ask: 'Did someone touch my laptop?' Show Muse Spark explaining the safety log. Close with the massive multi-device impact across laptops, smartphones, and Meta Ray-Ban glasses.*

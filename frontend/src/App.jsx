@@ -1,114 +1,168 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Glasses, Mic, Search, MapPin, Clock, Eye, 
-  Layers, HardDrive, Cpu, CheckCircle2, AlertCircle,
-  Sparkles, RefreshCw, ChevronRight, Video, VideoOff, Camera, Smartphone
+  Shield, ShieldAlert, ShieldCheck, AlertTriangle, Bell, BellOff,
+  Video, VideoOff, Camera, Eye, MapPin, Clock, Cpu, HardDrive,
+  Sparkles, RefreshCw, Smartphone, Glasses, Lock, Unlock, Flame,
+  CheckCircle2, Search, Mic, ArrowRight, Zap, Volume2, VolumeX
 } from 'lucide-react';
 
 export default function App() {
-  const [query, setQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [result, setResult] = useState(null);
-  const [timeline, setTimeline] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [activeTab, setActiveTab] = useState('recall'); // 'recall', 'timeline', 'simulate'
-  const [selectedMemory, setSelectedMemory] = useState(null);
+  const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'vault', 'assistant'
+  const [isArmed, setIsArmed] = useState(true);
+  const [activeAlarm, setActiveAlarm] = useState(null); // stores active incident if alarm is firing
+  const [incidents, setIncidents] = useState([]);
+  const [bufferStats, setBufferStats] = useState(null);
+  const [healthData, setHealthData] = useState(null);
 
-  // Simulation form states
-  const [roomContext, setRoomContext] = useState('Living Room');
-  const [targetHint, setTargetHint] = useState('');
-  const [isIngesting, setIsIngesting] = useState(false);
-  const [ingestStatus, setIngestStatus] = useState('');
-  const [ingestMode, setIngestMode] = useState('camera'); // 'camera' or 'upload'
+  // Live Camera states
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const sirenOscRef = useRef(null);
 
-  // Sample quick queries for live demo
-  const sampleQueries = [
-    "Where did I leave my car keys?",
-    "Where is my leather wallet?",
-    "Where are my AirPods Pro?",
-    "Where did I leave my reading glasses?",
-    "Where is my yellow screwdriver?"
-  ];
+  // Assistant states
+  const [query, setQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [assistantResult, setAssistantResult] = useState(null);
 
-  // Fetch initial timeline & stats
+  // Fetch initial data
   useEffect(() => {
-    fetchTimeline();
-    fetchStats();
+    fetchIncidents();
+    fetchHealth();
+    const interval = setInterval(fetchBufferStatus, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchStats = async () => {
+  const fetchHealth = async () => {
     try {
-      const res = await fetch('/api/stats');
+      const res = await fetch('/api/health');
       if (res.ok) {
         const data = await res.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.warn("Could not fetch stats:", err);
-    }
-  };
-
-  const fetchTimeline = async () => {
-    try {
-      const res = await fetch('/api/timeline');
-      if (res.ok) {
-        const data = await res.json();
-        setTimeline(data.memories || []);
-        if (data.memories && data.memories.length > 0 && !selectedMemory) {
-          setSelectedMemory(data.memories[0]);
+        setHealthData(data);
+        if (data.ephemeral_buffer) {
+          setBufferStats(data.ephemeral_buffer);
         }
       }
-    } catch (err) {
-      console.warn("Could not fetch timeline:", err);
+    } catch (e) {
+      console.warn("Could not fetch health:", e);
     }
   };
 
-  const handleSearch = async (searchQuery) => {
-    const q = searchQuery || query;
-    if (!q.trim()) return;
-
-    setIsSearching(true);
-    setResult(null);
-
+  const fetchBufferStatus = async () => {
     try {
-      const res = await fetch('/api/query-text', {
+      const res = await fetch('/api/sentinel/status');
+      if (res.ok) {
+        const data = await res.json();
+        setBufferStats(data);
+      }
+    } catch (e) {
+      console.warn("Buffer poll error:", e);
+    }
+  };
+
+  const fetchIncidents = async () => {
+    try {
+      const res = await fetch('/api/sentinel/incidents');
+      if (res.ok) {
+        const data = await res.json();
+        setIncidents(data.incidents || []);
+      }
+    } catch (e) {
+      console.warn("Incidents fetch error:", e);
+    }
+  };
+
+  // Toggle Arm / Disarm Perimeter
+  const toggleArm = async () => {
+    try {
+      const res = await fetch('/api/sentinel/toggle-arm', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setIsArmed(data.is_armed);
+        if (!data.is_armed && activeAlarm) {
+          stopSiren();
+          setActiveAlarm(null);
+        }
+      }
+    } catch (e) {
+      console.error("Arm toggle failed:", e);
+    }
+  };
+
+  // Web Audio Siren Generator
+  const playSiren = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+
+      // Alternating 800Hz / 600Hz emergency warble
+      let high = true;
+      const intervalId = setInterval(() => {
+        if (!sirenOscRef.current) {
+          clearInterval(intervalId);
+          return;
+        }
+        osc.frequency.setValueAtTime(high ? 880 : 620, ctx.currentTime);
+        high = !high;
+      }, 250);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      sirenOscRef.current = osc;
+    } catch (err) {
+      console.warn("Audio Context playback error:", err);
+    }
+  };
+
+  const stopSiren = () => {
+    if (sirenOscRef.current) {
+      try {
+        sirenOscRef.current.stop();
+        sirenOscRef.current.disconnect();
+      } catch (e) {}
+      sirenOscRef.current = null;
+    }
+    setActiveAlarm(null);
+  };
+
+  // Trigger Simulated / Real Snatch Intercept
+  const handleTriggerSnatch = async (targetItem = "Designer Leather Handbag") => {
+    try {
+      const res = await fetch('/api/sentinel/trigger-snatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q })
+        body: JSON.stringify({
+          target_item: targetItem,
+          location: "Coffee Shop Outdoor Table (Table #4)"
+        })
       });
 
       if (res.ok) {
-        const data = await res.json();
-        setResult(data);
+        const alertData = await res.json();
+        setActiveAlarm(alertData);
+        playSiren();
+        fetchIncidents();
+        fetchBufferStatus();
       }
     } catch (err) {
-      console.error("Search failed:", err);
-    } finally {
-      setIsSearching(false);
+      console.error("Snatch trigger error:", err);
     }
   };
 
-  const handleVoiceToggle = () => {
-    if (isRecording) {
-      setIsRecording(false);
-      return;
-    }
-
-    setIsRecording(true);
-    // Simulate real speech capture / Muse Voice Transcribe
-    setTimeout(() => {
-      setIsRecording(false);
-      const randomQuery = sampleQueries[Math.floor(Math.random() * sampleQueries.length)];
-      setQuery(randomQuery);
-      handleSearch(randomQuery);
-    }, 2200);
-  };
-
+  // Camera Management
   const startCamera = async () => {
     setCameraError('');
     try {
@@ -122,15 +176,14 @@ export default function App() {
       }
       setIsCameraActive(true);
     } catch (err) {
-      console.error("Camera access denied or unavailable:", err);
-      setCameraError('Camera access unavailable. You can use photo upload or grant browser camera permissions.');
+      setCameraError('Camera access unavailable. Grant permissions to view live sentinel stream.');
       setIsCameraActive(false);
     }
   };
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
     if (videoRef.current) {
@@ -139,89 +192,34 @@ export default function App() {
     setIsCameraActive(false);
   };
 
-  // Turn off camera if switching tabs
-  useEffect(() => {
-    if (activeTab !== 'simulate') {
-      stopCamera();
-    }
-  }, [activeTab]);
+  // Assistant Query
+  const handleSearch = async (queryText) => {
+    const q = queryText || query;
+    if (!q.trim()) return;
 
-  const captureCameraFrame = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 720;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      setIsIngesting(true);
-      setIngestStatus('SAM 3.1 segmenting micro-objects from live camera stream...');
-
-      const formData = new FormData();
-      formData.append('frame', blob, 'camera_sweep.jpg');
-      formData.append('room_context', roomContext);
-      if (targetHint) formData.append('target_hint', targetHint);
-
-      try {
-        const res = await fetch('/api/ingest-frame', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setIngestStatus(`Success! SAM 3.1 indexed ${data.segments_found} object(s). Raw camera frame discarded (0MB storage).`);
-          fetchTimeline();
-          fetchStats();
-        } else {
-          setIngestStatus('Ingestion failed.');
-        }
-      } catch (err) {
-        setIngestStatus('Network error during frame ingestion.');
-      } finally {
-        setIsIngesting(false);
-      }
-    }, 'image/jpeg', 0.85);
-  };
-
-  const handleSimulateUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsIngesting(true);
-    setIngestStatus('SAM 3.1 segmenting micro-objects in scene...');
-
-    const formData = new FormData();
-    formData.append('frame', file);
-    formData.append('room_context', roomContext);
-    if (targetHint) formData.append('target_hint', targetHint);
+    setIsSearching(true);
+    setAssistantResult(null);
 
     try {
-      const res = await fetch('/api/ingest-frame', {
+      const res = await fetch('/api/query-text', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q })
       });
 
       if (res.ok) {
         const data = await res.json();
-        setIngestStatus(`Success! SAM 3.1 indexed ${data.segments_found} object(s). Raw video discarded (0MB wasted).`);
-        fetchTimeline();
-        fetchStats();
-      } else {
-        setIngestStatus('Ingestion failed.');
+        setAssistantResult(data);
       }
     } catch (err) {
-      setIngestStatus('Network error during frame ingestion.');
+      console.error("Query failed:", err);
     } finally {
-      setIsIngesting(false);
+      setIsSearching(false);
     }
   };
 
-  // Convert bounding box [x1, y1, x2, y2] to SVG coords for 720x480 frame
-  const renderBoundingBox = (bbox, polygon) => {
+  // Render SVG SAM 3.1 Bounding Polygon & Box
+  const renderSAMOverlay = (bbox, polygon, isAlarm = false) => {
     if (!bbox || bbox.length < 4) return null;
     const [x1, y1, x2, y2] = bbox;
     const w = x2 - x1;
@@ -232,15 +230,18 @@ export default function App() {
       polyString = polygon.map(p => `${p[0]},${p[1]}`).join(' ');
     }
 
+    const strokeColor = isAlarm ? '#ff0055' : '#00f2fe';
+    const fillColor = isAlarm ? 'rgba(255, 0, 85, 0.35)' : 'rgba(0, 242, 254, 0.25)';
+
     return (
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 720 480">
         {polyString && (
           <polygon
             points={polyString}
-            fill="rgba(0, 242, 254, 0.25)"
-            stroke="#00f2fe"
-            strokeWidth="3"
-            className="sam-glow"
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth="3.5"
+            className={isAlarm ? 'animate-pulse' : ''}
           />
         )}
         <rect
@@ -249,355 +250,390 @@ export default function App() {
           width={w}
           height={h}
           fill="none"
-          stroke="#7928ca"
+          stroke={isAlarm ? '#ff0055' : '#7928ca'}
           strokeWidth="3"
-          strokeDasharray="6,4"
+          strokeDasharray={isAlarm ? 'none' : '6,4'}
         />
-        {/* Pulsating target indicator */}
-        <circle cx={x1 + w / 2} cy={y1 + h / 2} r="6" fill="#00f2fe" className="animate-ping" />
-        <circle cx={x1 + w / 2} cy={y1 + h / 2} r="4" fill="#ffffff" />
+        <circle cx={x1 + w / 2} cy={y1 + h / 2} r="8" fill={strokeColor} className="animate-ping" />
+        <circle cx={x1 + w / 2} cy={y1 + h / 2} r="5" fill="#ffffff" />
       </svg>
     );
   };
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-gray-100 flex flex-col selection:bg-cyan-500 selection:text-black">
-      {/* 1. TOP SPATIAL HUD HEADER */}
-      <header className="border-b border-hud-border/80 bg-hud-dark/90 backdrop-blur-md sticky top-0 z-50 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-tr from-hud-cyan/20 to-hud-purple/30 border border-hud-cyan/40 text-hud-cyan flex items-center justify-center shadow-lg shadow-cyan-950/40">
-            <Glasses className="w-6 h-6 animate-pulse" />
+    <div className={`min-h-screen text-gray-100 flex flex-col transition-colors duration-500 ${
+      activeAlarm ? 'bg-red-950/40 selection:bg-rose-500' : 'bg-[#06080d] selection:bg-cyan-500'
+    }`}>
+      {/* 1. TOP SENTINEL HUD HEADER */}
+      <header className="border-b border-gray-800/80 bg-[#090d16]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className={`p-2.5 rounded-2xl border flex items-center justify-center shadow-xl transition-all ${
+            activeAlarm
+              ? 'bg-rose-600/30 border-rose-500 text-rose-400 animate-bounce shadow-rose-950/60'
+              : 'bg-gradient-to-tr from-cyan-500/20 to-indigo-600/20 border-cyan-500/40 text-cyan-400 shadow-cyan-950/40'
+          }`}>
+            <Shield className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold tracking-wider text-lg bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
-                SpatialRecall
+            <div className="flex items-center gap-2.5">
+              <span className="font-extrabold tracking-wider text-xl bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
+                AegisAI
               </span>
-              <span className="px-2.5 py-0.5 text-[10px] uppercase font-semibold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded-full flex items-center gap-1.5 shadow-sm">
-                <Smartphone className="w-3 h-3 text-indigo-400" />
-                <span>Smartphones</span>
-                <span className="text-gray-500">&</span>
-                <Glasses className="w-3 h-3 text-cyan-400" />
-                <span>Meta Glasses</span>
+              <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-indigo-950/80 text-indigo-300 border border-indigo-700/60 rounded-full flex items-center gap-1 shadow-sm">
+                24/7 Ephemeral Sentinel
               </span>
             </div>
-            <p className="text-xs text-gray-400">Ctrl+F for the Physical World · Episodic Spatial Memory for Mobile & Wearables</p>
+            <p className="text-xs text-gray-400">Continuous AI Bodyguard & Anti-Theft Guardian · Zero-Surveillance Privacy</p>
           </div>
         </div>
 
-        {/* Real-time Wearable Hardware Metrics */}
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-hud-card border border-hud-border text-gray-300">
-            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-gray-400">Vision:</span>
-            <span className="font-semibold text-cyan-300">SAM 3.1</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-hud-card border border-hud-border text-gray-300">
-            <Mic className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-gray-400">Voice:</span>
-            <span className="font-semibold text-indigo-300">Muse Voice</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-hud-card border border-hud-border text-gray-300">
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-gray-400">Reasoning:</span>
-            <span className="font-semibold text-purple-300">Muse Spark</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-400">
-            <HardDrive className="w-3.5 h-3.5" />
-            <span className="text-emerald-300 font-medium">
-              Storage: {stats?.total_storage_kb ? `${stats.total_storage_kb} KB` : '3.2 MB'} (<span className="text-emerald-400 font-semibold">&lt;15MB/day</span>)
+        {/* Real-time Hardware Metrics & Arm Toggle */}
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          {/* Ephemeral Buffer Pill */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 border border-gray-800 text-gray-300">
+            <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-gray-400">RAM Buffer:</span>
+            <span className="font-semibold text-cyan-300">
+              {bufferStats?.active_frames_in_ram ? `${bufferStats.active_frames_in_ram} frames` : '10s Rolling'}
             </span>
+            <span className="text-[10px] text-emerald-400 font-mono">(0MB on disk)</span>
           </div>
+
+          {/* Model Pill */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 border border-gray-800 text-gray-300">
+            <Cpu className="w-3.5 h-3.5 text-purple-400" />
+            <span className="text-gray-400">Vision:</span>
+            <span className="font-semibold text-purple-300">Meta SAM 3.1</span>
+          </div>
+
+          {/* ARM / DISARM BUTTON */}
+          <button
+            onClick={toggleArm}
+            className={`px-4 py-1.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg ${
+              isArmed
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-500/30'
+                : 'bg-rose-500/20 text-rose-300 border border-rose-500/50 hover:bg-rose-500/30'
+            }`}
+          >
+            {isArmed ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Unlock className="w-3.5 h-3.5 text-rose-400" />}
+            <span>PERIMETER: {isArmed ? 'ARMED' : 'STANDBY'}</span>
+          </button>
         </div>
       </header>
 
-      {/* 2. NAVIGATION SUB-HEADER */}
-      <nav className="px-6 py-2 bg-hud-card/40 border-b border-hud-border/40 flex items-center justify-between">
+      {/* 2. EMERGENCY ALARM BANNER (When Active) */}
+      {activeAlarm && (
+        <div className="bg-rose-950/90 border-b border-rose-500/80 px-6 py-3 flex items-center justify-between text-rose-200 animate-pulse">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="w-6 h-6 text-rose-400 animate-ping" />
+            <div>
+              <span className="font-bold text-sm tracking-wider uppercase text-rose-300">
+                🚨 SECURITY INTERCEPT TRIGGERED!
+              </span>
+              <p className="text-xs text-rose-200/90">
+                High-velocity snatch attempt detected on <strong>{activeAlarm.target_item}</strong>. Deterrent siren active; forensic evidence locked.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={stopSiren}
+            className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg"
+          >
+            <VolumeX className="w-4 h-4" />
+            Silence Alarm
+          </button>
+        </div>
+      )}
+
+      {/* 3. NAVIGATION SUB-HEADER */}
+      <nav className="px-6 py-2.5 bg-[#090d16]/60 border-b border-gray-800/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveTab('recall')}
+            onClick={() => setActiveTab('radar')}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'recall'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-hud-card'
+              activeTab === 'radar'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/40'
             }`}
           >
-            🔍 Live Recall Search
+            🛡️ Live Sentinel Radar
           </button>
           <button
-            onClick={() => setActiveTab('timeline')}
+            onClick={() => setActiveTab('vault')}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'timeline'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-hud-card'
+              activeTab === 'vault'
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/40'
             }`}
           >
-            ⏱️ Spatial Timeline ({timeline.length})
+            🚨 Incident Evidence Vault ({incidents.length})
           </button>
           <button
-            onClick={() => setActiveTab('simulate')}
+            onClick={() => setActiveTab('assistant')}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'simulate'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-hud-card'
+              activeTab === 'assistant'
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/40'
             }`}
           >
-            📷 Ingest Camera Feed
+            🤝 Safety Assistant & Memory
           </button>
         </div>
 
-        <div className="text-xs text-gray-500 hidden sm:block">
-          Episodic Memory Graph Active · {timeline.length} physical items localized
+        <div className="text-xs text-gray-500 hidden md:flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Zero-Knowledge Buffer Active · All unflagged video purged every 10s</span>
         </div>
       </nav>
 
-      {/* 3. MAIN BODY CONTENT */}
+      {/* 4. MAIN CONTENT AREA */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 flex flex-col gap-6">
-        {/* TAB 1: RECALL SEARCH */}
-        {activeTab === 'recall' && (
+
+        {/* TAB 1: LIVE SENTINEL RADAR */}
+        {activeTab === 'radar' && (
           <div className="flex flex-col gap-6">
-            {/* Search Input Bar */}
-            <div className="bg-hud-card border border-hud-border rounded-2xl p-4 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    placeholder="Ask hands-free: 'Where did I leave my car keys?' or 'Find my wallet'..."
-                    className="w-full bg-hud-dark border border-hud-border/80 focus:border-cyan-400 rounded-xl px-4 py-3.5 text-base text-gray-100 placeholder-gray-500 outline-none transition-all pr-12 shadow-inner"
-                  />
-                  <button
-                    onClick={() => handleSearch()}
-                    disabled={isSearching}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-all"
-                  >
-                    <Search className="w-5 h-5" />
-                  </button>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* Radar Viewport (Video Stream or Intercept Freeze) */}
+              <div className="lg:col-span-8 bg-[#090d16] border border-gray-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                <div className="px-4 py-2.5 bg-gray-900 border-b border-gray-800 flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-2 text-cyan-400 font-semibold">
+                    <Eye className="w-4 h-4" />
+                    Live Perimeter Radar (Meta SAM 3.1 Gaze & Snatch Tracking)
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] ${
+                    isArmed ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800' : 'bg-rose-950/80 text-rose-400 border border-rose-800'
+                  }`}>
+                    {isArmed ? 'ARMED · ACTIVE' : 'STANDBY'}
+                  </span>
                 </div>
 
-                {/* Hands-Free Voice Button */}
-                <button
-                  onClick={handleVoiceToggle}
-                  className={`px-5 py-3.5 rounded-xl flex items-center gap-2 font-semibold text-sm transition-all shadow-lg ${
-                    isRecording
-                      ? 'bg-rose-600 text-white animate-pulse shadow-rose-900/50'
-                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-purple-900/30'
-                  }`}
-                >
-                  <Mic className={`w-5 h-5 ${isRecording ? 'animate-bounce' : ''}`} />
-                  {isRecording ? 'Listening (Muse Voice)...' : 'Hands-Free Voice'}
-                </button>
+                <div className="relative aspect-[16/10] bg-black flex items-center justify-center overflow-hidden">
+                  {/* Active Alarm Frozen Intercept */}
+                  {activeAlarm ? (
+                    <>
+                      <img
+                        src={`/data/${activeAlarm.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
+                        alt="Theft Intercept Frame"
+                        className="w-full h-full object-cover"
+                      />
+                      {renderSAMOverlay(activeAlarm.bounding_box, activeAlarm.segmentation_polygon, true)}
+                      <div className="absolute top-4 left-4 px-3 py-1.5 rounded-lg bg-rose-950/90 border border-rose-500 text-rose-200 text-xs font-bold flex items-center gap-2 shadow-2xl">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                        <span>INTERCEPTED: {activeAlarm.target_item}</span>
+                        <span className="text-rose-400">({activeAlarm.displacement_velocity} m/s)</span>
+                      </div>
+                    </>
+                  ) : (
+                    /* Live Webcam or Standby View */
+                    <>
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className={`w-full h-full object-cover ${!isCameraActive ? 'hidden' : ''}`}
+                      />
+
+                      {isCameraActive && (
+                        <div className="absolute inset-0 pointer-events-none p-5 flex flex-col justify-between">
+                          <div className="flex justify-between items-center text-[10px] text-cyan-400 bg-black/70 backdrop-blur-sm px-3 py-1 rounded-lg border border-cyan-800/60 font-mono">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                              PERIMETER SCANNING · 10S ROLLING RAM BUFFER
+                            </span>
+                            <span className="text-gray-400">Meta SAM 3.1 Active</span>
+                          </div>
+
+                          <div className="self-center border-2 border-dashed border-cyan-400/50 rounded-2xl w-64 h-48 flex flex-col items-center justify-center text-xs text-cyan-300 font-mono gap-1">
+                            <span>[ PROTECTED ZONE ]</span>
+                            <span className="text-[10px] text-gray-400">Handbag / Laptop / Phone</span>
+                          </div>
+
+                          <div className="text-[11px] text-gray-400 text-center bg-black/70 backdrop-blur-sm py-1 rounded-lg border border-gray-800">
+                            Unflagged frames auto-purged from RAM every 10s · Zero persistent storage
+                          </div>
+                        </div>
+                      )}
+
+                      {!isCameraActive && (
+                        <div className="flex flex-col items-center justify-center p-8 text-center gap-3">
+                          <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-400">
+                            <Shield className="w-10 h-10" />
+                          </div>
+                          <div>
+                            <p className="text-base font-bold text-gray-200">Sentinel Radar in Standby</p>
+                            <p className="text-xs text-gray-400 mt-1 max-w-sm">
+                              Start your laptop or phone camera to simulate an active table guard or walking bodyguard.
+                            </p>
+                          </div>
+                          <button
+                            onClick={startCamera}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-black font-bold text-xs shadow-lg shadow-cyan-950/40 transition-all flex items-center gap-2"
+                          >
+                            <Video className="w-4 h-4" />
+                            Start Live Camera Stream
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Radar Action Toolbar */}
+                <div className="p-4 bg-gray-900/80 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {isCameraActive ? (
+                      <button
+                        onClick={stopCamera}
+                        className="px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      >
+                        <VideoOff className="w-4 h-4" />
+                        Stop Camera
+                      </button>
+                    ) : (
+                      <button
+                        onClick={startCamera}
+                        className="px-3.5 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      >
+                        <Video className="w-4 h-4" />
+                        Start Camera
+                      </button>
+                    )}
+                  </div>
+
+                  {/* SIMULATE THEFT BUTTON (The Hackathon Winner Feature) */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTriggerSnatch("Designer Leather Handbag")}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-950/50 transition-all flex items-center gap-2"
+                    >
+                      <Zap className="w-4 h-4 animate-bounce" />
+                      Test Intercept: Simulate Handbag Snatch
+                    </button>
+                    <button
+                      onClick={() => handleTriggerSnatch("MacBook Pro 16")}
+                      className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold text-xs border border-gray-700 transition-all"
+                    >
+                      Simulate Laptop Theft
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Sample Query Quick Pills */}
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-gray-500">Quick tests:</span>
-                {sampleQueries.map((qText, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setQuery(qText);
-                      handleSearch(qText);
-                    }}
-                    className="px-2.5 py-1 rounded-md bg-hud-dark/80 hover:bg-cyan-950/60 border border-hud-border hover:border-cyan-700/50 text-gray-300 hover:text-cyan-300 transition-all"
-                  >
-                    {qText}
-                  </button>
-                ))}
+              {/* Sidebar Sentinel Intelligence Panel */}
+              <div className="lg:col-span-4 flex flex-col gap-4">
+                <div className="bg-[#090d16] border border-gray-800 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">
+                        Protection Profile
+                      </span>
+                      <h3 className="text-lg font-bold text-gray-100 mt-0.5">
+                        Active Valuables
+                      </h3>
+                    </div>
+                    <span className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                      <ShieldCheck className="w-5 h-5" />
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-900 border border-gray-800">
+                      <span className="text-gray-300 font-medium">👜 Handbags & Purses</span>
+                      <span className="text-emerald-400 font-semibold">Active Perimeter</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-900 border border-gray-800">
+                      <span className="text-gray-300 font-medium">💻 Laptops & Tablets</span>
+                      <span className="text-emerald-400 font-semibold">Active Perimeter</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-900 border border-gray-800">
+                      <span className="text-gray-300 font-medium">📱 Smartphones</span>
+                      <span className="text-emerald-400 font-semibold">Motion Sensor Guard</span>
+                    </div>
+                  </div>
+
+                  {/* Forensic Telemetry Box */}
+                  <div className="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-800/40 text-xs text-indigo-200 leading-relaxed">
+                    <div className="flex items-center gap-1.5 font-bold text-indigo-300 mb-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Meta AI Forensic Logic:
+                    </div>
+                    <p className="text-[11px] text-gray-300">
+                      SAM 3.1 continuously segments foreground valuables and computes optical displacement velocity vectors. Any snatch &gt; 3.0 m/s triggers instant 85dB deterrent sirens and locks evidence.
+                    </p>
+                  </div>
+
+                  {/* Ephemeral Architecture Guarantee */}
+                  <div className="pt-3 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                    <span>Privacy Guarantee:</span>
+                    <span className="text-emerald-400 font-semibold">Zero Persistent Video Stored</span>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Live Search Result Viewport */}
-            {isSearching ? (
-              <div className="flex flex-col items-center justify-center p-16 bg-hud-card/60 border border-hud-border rounded-2xl gap-3">
-                <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin" />
-                <p className="text-sm font-medium text-gray-300">Searching episodic memory timeline with Muse Spark...</p>
-                <p className="text-xs text-gray-500">Cross-referencing spatial bounding boxes and scene keyframes...</p>
-              </div>
-            ) : result ? (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Visual Keyframe Viewport with SAM 3.1 Overlay */}
-                <div className="lg:col-span-8 bg-hud-card border border-hud-border rounded-2xl overflow-hidden shadow-2xl flex flex-col">
-                  <div className="px-4 py-2.5 bg-hud-dark border-b border-hud-border flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 text-cyan-400 font-medium">
-                      <Eye className="w-4 h-4" />
-                      Visual Spatial Grounding (SAM 3.1 Segment Overlay)
-                    </span>
-                    <span className="text-gray-400">
-                      Captured: {result.last_seen_timestamp ? result.last_seen_timestamp.slice(11, 16) : 'Today'} · {result.time_ago}
-                    </span>
-                  </div>
-
-                  <div className="relative aspect-[3/2] bg-black flex items-center justify-center overflow-hidden">
-                    <img
-                      src={`/data/${result.frame_path || 'sample_scenes/kitchen_counter.jpg'}`}
-                      alt="Identified scene"
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Glowing SAM 3.1 Segmentation Overlay */}
-                    {renderBoundingBox(result.bounding_box, result.segmentation_polygon)}
-
-                    {/* HUD Pinpoint Tag */}
-                    <div className="absolute top-4 left-4 px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-md border border-cyan-500/60 text-cyan-300 text-xs flex items-center gap-2 shadow-lg">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                      <span className="font-bold uppercase tracking-wider">{result.target_object || 'OBJECT FOUND'}</span>
-                      <span className="text-gray-400">({Math.round((result.confidence || 0.95) * 100)}% match)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Spatial Context Breakdown Card */}
-                <div className="lg:col-span-4 flex flex-col gap-4">
-                  <div className="bg-hud-card border border-hud-border rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span className="text-xs uppercase font-bold tracking-wider text-cyan-400">
-                          Recall Target Located
-                        </span>
-                        <h3 className="text-xl font-bold capitalize text-gray-100 mt-0.5">
-                          {result.target_object}
-                        </h3>
-                      </div>
-                      <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </span>
-                    </div>
-
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-hud-dark border border-hud-border">
-                        <MapPin className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-400">Exact Spatial Location</p>
-                          <p className="font-medium text-gray-200">{result.location_context}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-hud-dark border border-hud-border">
-                        <Clock className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs text-gray-400">Last Observed</p>
-                          <p className="font-medium text-gray-200">{result.time_ago} ({result.display_time || 'Recent'})</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* AI Reasoning Text */}
-                    <div className="p-3.5 rounded-xl bg-gradient-to-br from-indigo-950/40 to-purple-950/30 border border-indigo-800/40 text-xs text-indigo-200 leading-relaxed">
-                      <div className="flex items-center gap-1.5 font-semibold text-indigo-300 mb-1">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Muse Spark Reasoning:
-                      </div>
-                      {result.explanation}
-                    </div>
-
-                    {/* Ephemeral Architecture Badge */}
-                    <div className="pt-2 border-t border-hud-border/60 text-[11px] text-gray-400 flex items-center justify-between">
-                      <span>Ephemeral Memory:</span>
-                      <span className="text-emerald-400 font-semibold">Raw Video Discarded (0MB Used)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Empty State / Welcome Screen */
-              <div className="bg-hud-card/60 border border-hud-border rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-cyan-950/50 border border-cyan-800/40 flex items-center justify-center text-cyan-400 shadow-xl">
-                  <Eye className="w-8 h-8" />
-                </div>
-                <div className="max-w-md">
-                  <h3 className="text-lg font-bold text-gray-100">Your Physical Life is Now Searchable</h3>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Ask hands-free with your voice or type above to instantly recall where your keys, wallet, tools, or AirPods were last seen.
-                  </p>
-                </div>
-                <div className="flex flex-wrap justify-center gap-3 mt-2">
-                  <button
-                    onClick={() => {
-                      setQuery("Where did I leave my car keys?");
-                      handleSearch("Where did I leave my car keys?");
-                    }}
-                    className="px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-sm font-medium transition-all"
-                  >
-                    Try: "Where are my car keys?"
-                  </button>
-                  <button
-                    onClick={() => {
-                      setQuery("Where is my leather wallet?");
-                      handleSearch("Where is my leather wallet?");
-                    }}
-                    className="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-sm font-medium transition-all"
-                  >
-                    Try: "Where is my wallet?"
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* TAB 2: SPATIAL TIMELINE */}
-        {activeTab === 'timeline' && (
-          <div className="flex flex-col gap-4">
+        {/* TAB 2: INCIDENT EVIDENCE VAULT */}
+        {activeTab === 'vault' && (
+          <div className="flex flex-col gap-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-gray-100">Episodic Spatial Timeline</h2>
-                <p className="text-xs text-gray-400">All micro-objects passively segmented and indexed by SAM 3.1 today</p>
+                <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
+                  <ShieldAlert className="w-6 h-6 text-rose-400" />
+                  Locked Incident Evidence Vault
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  When a theft or perimeter breach is intercepted, the 10-second rolling buffer freezes the incident evidence frame and AI forensic report.
+                </p>
               </div>
-              <span className="text-xs px-3 py-1 rounded-full bg-hud-dark border border-hud-border text-gray-400">
-                Total Storage: ~{stats?.total_storage_kb || '3.2'} KB
+              <span className="text-xs px-3 py-1 rounded-full bg-rose-950/80 border border-rose-800 text-rose-300 font-semibold">
+                {incidents.length} Breaches Intercepted
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {timeline.map((item) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {incidents.map((inc) => (
                 <div
-                  key={item.id}
-                  onClick={() => {
-                    setResult({
-                      found: true,
-                      target_object: item.object_name,
-                      location_context: item.room_context,
-                      last_seen_timestamp: item.timestamp,
-                      time_ago: 'Observed today',
-                      confidence: item.confidence,
-                      bounding_box: item.bounding_box,
-                      segmentation_polygon: item.segmentation_polygon,
-                      frame_path: item.frame_path,
-                      thumbnail_path: item.thumbnail_path,
-                      explanation: `Identified by SAM 3.1 in the ${item.room_context}.`
-                    });
-                    setActiveTab('recall');
-                  }}
-                  className="bg-hud-card hover:bg-hud-card/80 border border-hud-border hover:border-cyan-500/50 rounded-xl p-4 flex gap-4 cursor-pointer transition-all shadow-md group"
+                  key={inc.id}
+                  className="bg-[#090d16] border border-gray-800 hover:border-rose-500/50 rounded-2xl p-5 shadow-xl flex flex-col gap-4 transition-all"
                 >
-                  <div className="w-20 h-20 rounded-lg bg-black overflow-hidden shrink-0 border border-hud-border group-hover:border-cyan-400 transition-all">
-                    <img
-                      src={`/data/${item.thumbnail_path || 'thumbnails/keys.jpg'}`}
-                      alt={item.object_name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex flex-col justify-between flex-1 min-w-0">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">
-                        {item.category}
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-rose-400 px-2 py-0.5 rounded bg-rose-950/80 border border-rose-800">
+                        {inc.severity} · {inc.incident_type.replace('_', ' ').toUpperCase()}
                       </span>
-                      <h4 className="font-semibold text-gray-200 capitalize truncate group-hover:text-cyan-300 transition-all">
-                        {item.object_name}
-                      </h4>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">
-                        {item.room_context}
+                      <h3 className="text-lg font-bold text-gray-100 mt-2">
+                        {inc.target_item}
+                      </h3>
+                      <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-1">
+                        <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                        {inc.location_context}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-gray-500 mt-2">
-                      <span>{item.timestamp ? item.timestamp.slice(11, 16) : ''}</span>
-                      <span className="text-cyan-400 group-hover:translate-x-1 transition-all">Recall &rarr;</span>
+                    <span className="text-xs text-gray-400 font-mono">
+                      {inc.timestamp ? inc.timestamp.slice(11, 16) : ''}
+                    </span>
+                  </div>
+
+                  {/* Evidence Image with SAM 3.1 Overlay */}
+                  <div className="relative aspect-[16/9] bg-black rounded-xl overflow-hidden border border-gray-800">
+                    <img
+                      src={`/data/${inc.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
+                      alt={inc.target_item}
+                      className="w-full h-full object-cover"
+                    />
+                    {renderSAMOverlay(inc.bounding_box, inc.segmentation_polygon, true)}
+                    <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded bg-black/80 backdrop-blur-md text-[10px] text-rose-300 font-mono border border-rose-800">
+                      Displacement Velocity: {inc.displacement_velocity} m/s
                     </div>
+                  </div>
+
+                  {/* Forensic Summary */}
+                  <div className="p-3.5 rounded-xl bg-gray-900 border border-gray-800 text-xs text-gray-300 leading-relaxed">
+                    <span className="font-semibold text-rose-400 block mb-1">Forensic Intercept Report:</span>
+                    {inc.ai_forensic_report}
                   </div>
                 </div>
               ))}
@@ -605,215 +641,121 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: INGEST CAMERA FEED (SMARTPHONE OR SMART GLASSES) */}
-        {activeTab === 'simulate' && (
-          <div className="max-w-2xl mx-auto w-full bg-hud-card border border-hud-border rounded-2xl p-6 shadow-xl flex flex-col gap-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* TAB 3: SAFETY ASSISTANT & MEMORY */}
+        {activeTab === 'assistant' && (
+          <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
+            <div className="bg-[#090d16] border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-cyan-400" />
-                  Ingest Real-World Keyframe
+                  <Sparkles className="w-5 h-5 text-indigo-400" />
+                  Ask AegisAI: Safety & Ambient Memory
                 </h2>
                 <p className="text-xs text-gray-400 mt-1">
-                  Use your phone/laptop camera or upload any scene. SAM 3.1 segments micro-objects into memory and discards the raw frame.
+                  Query your security timeline or ambient peace-of-mind memories hands-free.
                 </p>
               </div>
 
-              {/* Mode Toggle: Live Camera vs File Upload */}
-              <div className="flex items-center p-1 rounded-xl bg-hud-dark border border-hud-border text-xs">
-                <button
-                  onClick={() => {
-                    setIngestMode('camera');
-                    if (!isCameraActive) startCamera();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${
-                    ingestMode === 'camera'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Video className="w-3.5 h-3.5" />
-                  Live Camera
-                </button>
-                <button
-                  onClick={() => {
-                    setIngestMode('upload');
-                    stopCamera();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${
-                    ingestMode === 'upload'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  Upload Photo
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1">
-                  Room / Spatial Context:
-                </label>
-                <input
-                  type="text"
-                  value={roomContext}
-                  onChange={(e) => setRoomContext(e.target.value)}
-                  placeholder="e.g. Home Office Desk, Kitchen Counter, Workshop Workbench"
-                  className="w-full bg-hud-dark border border-hud-border rounded-xl px-4 py-2.5 text-sm text-gray-100 focus:border-cyan-400 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1">
-                  Target Object Hint (Optional):
-                </label>
-                <input
-                  type="text"
-                  value={targetHint}
-                  onChange={(e) => setTargetHint(e.target.value)}
-                  placeholder="e.g. car keys, wallet, wireless earbuds, water bottle"
-                  className="w-full bg-hud-dark border border-hud-border rounded-xl px-4 py-2.5 text-sm text-gray-100 focus:border-cyan-400 outline-none"
-                />
-              </div>
-
-              {/* CAMERA MODE VIEW */}
-              {ingestMode === 'camera' && (
-                <div className="flex flex-col gap-3">
-                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-hud-border flex items-center justify-center">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className={`w-full h-full object-cover ${!isCameraActive ? 'hidden' : ''}`}
-                    />
-
-                    {!isCameraActive && (
-                      <div className="flex flex-col items-center justify-center p-6 text-center gap-3">
-                        <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-400">
-                          <Video className="w-8 h-8" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-200">Camera Feed Idle</p>
-                          <p className="text-xs text-gray-400 mt-1 max-w-xs">
-                            Start your device camera to simulate smart glasses or phone sweeps over your desk or room.
-                          </p>
-                        </div>
-                        <button
-                          onClick={startCamera}
-                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-black font-bold text-xs shadow-lg shadow-cyan-950/40 transition-all flex items-center gap-2"
-                        >
-                          <Video className="w-4 h-4" />
-                          Start Live Camera
-                        </button>
-                      </div>
-                    )}
-
-                    {/* HUD Target Reticle Overlay when active */}
-                    {isCameraActive && (
-                      <div className="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between">
-                        <div className="flex justify-between items-center text-[10px] text-cyan-400 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-md border border-cyan-800/50">
-                          <span className="flex items-center gap-1.5 font-mono">
-                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                            LIVE POV FEED · 1 FPS SWEEP
-                          </span>
-                          <span className="text-gray-400">Meta SAM 3.1 Ready</span>
-                        </div>
-                        <div className="self-center border border-dashed border-cyan-400/50 rounded-lg w-48 h-32 flex items-center justify-center text-[10px] text-cyan-300 font-mono">
-                          [ AIM AT OBJECT ]
-                        </div>
-                        <div className="text-[10px] text-gray-400 text-center bg-black/60 backdrop-blur-sm py-0.5 rounded">
-                          Frame automatically discarded after segmentation
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {cameraError && (
-                    <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{cameraError}</span>
-                    </div>
-                  )}
-
-                  {isCameraActive && (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={captureCameraFrame}
-                        disabled={isIngesting}
-                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 hover:from-cyan-400 hover:to-teal-300 text-black font-bold text-sm shadow-lg shadow-cyan-950/50 transition-all flex items-center justify-center gap-2"
-                      >
-                        <Camera className="w-4 h-4" />
-                        {isIngesting ? 'Segmenting with SAM 3.1...' : 'Capture Keyframe & Ingest'}
-                      </button>
-                      <button
-                        onClick={stopCamera}
-                        className="px-4 py-3 rounded-xl bg-hud-dark border border-hud-border hover:border-gray-600 text-gray-300 text-sm font-medium transition-all flex items-center gap-1.5"
-                      >
-                        <VideoOff className="w-4 h-4" />
-                        Stop Camera
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* UPLOAD PHOTO MODE VIEW */}
-              {ingestMode === 'upload' && (
-                <label
-                  htmlFor="scene-file-input"
-                  className="relative border-2 border-dashed border-hud-border hover:border-cyan-500/50 rounded-xl p-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-hud-dark/50 overflow-hidden group"
-                >
-                  <Camera className="w-10 h-10 text-cyan-400 group-hover:scale-110 transition-transform" />
-                  <p className="text-sm font-medium text-gray-300">Click to upload a scene photo or webcam capture</p>
-                  <p className="text-xs text-gray-500">Supports JPG, PNG (Simulates camera keyframe sweep)</p>
+              {/* Search Bar */}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
                   <input
-                    id="scene-file-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleSimulateUpload}
-                    disabled={isIngesting}
-                    className="hidden"
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    placeholder="e.g. 'Did someone touch my laptop?' or 'Did I unplug the iron?'..."
+                    className="w-full bg-gray-900 border border-gray-800 focus:border-cyan-400 rounded-xl px-4 py-3.5 text-sm text-gray-100 outline-none transition-all pr-12"
                   />
-                </label>
-              )}
-
-              {isIngesting && (
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-sm">
-                  <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
-                  <span>{ingestStatus}</span>
+                  <button
+                    onClick={() => handleSearch()}
+                    disabled={isSearching}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-all"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
+              </div>
 
-              {!isIngesting && ingestStatus && (
-                <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 text-sm flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                  <span>{ingestStatus}</span>
-                </div>
-              )}
+              {/* Quick Prompt Pills */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-gray-500">Quick tests:</span>
+                {[
+                  "Did someone touch my laptop?",
+                  "Did anyone try to take my handbag?",
+                  "Did I unplug the iron?",
+                  "Where are my apartment keys?"
+                ].map((promptText, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setQuery(promptText);
+                      handleSearch(promptText);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-indigo-950/60 border border-gray-800 hover:border-indigo-700 text-gray-300 hover:text-indigo-300 transition-all"
+                  >
+                    {promptText}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Assistant Results */}
+            {isSearching ? (
+              <div className="p-12 rounded-2xl bg-[#090d16] border border-gray-800 flex flex-col items-center justify-center gap-3">
+                <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin" />
+                <p className="text-sm text-gray-300">Searching 10-second rolling buffer and security ledger...</p>
+              </div>
+            ) : assistantResult ? (
+              <div className="bg-[#090d16] border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">
+                      {assistantResult.is_incident ? '🚨 Security Threat Found' : 'Verified Observation'}
+                    </span>
+                    <h3 className="text-xl font-bold text-gray-100 capitalize mt-1">
+                      {assistantResult.target_object}
+                    </h3>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    assistantResult.is_incident ? 'bg-rose-950/80 text-rose-300 border border-rose-800' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
+                  }`}>
+                    {assistantResult.is_incident ? 'Incident Locked' : 'Verified Safe'}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-gray-900 border border-gray-800 text-sm text-gray-200 leading-relaxed">
+                  {assistantResult.explanation}
+                </div>
+
+                <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-gray-800">
+                  <img
+                    src={`/data/${assistantResult.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
+                    alt="Result View"
+                    className="w-full h-full object-cover"
+                  />
+                  {renderSAMOverlay(assistantResult.bounding_box, assistantResult.segmentation_polygon, assistantResult.is_incident)}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </main>
 
-      {/* 4. FOOTER WITH HACKATHON ATTRIBUTION */}
-      <footer className="border-t border-hud-border/80 bg-hud-dark px-6 py-4 flex flex-wrap items-center justify-between text-xs text-gray-500 gap-4">
+      {/* 5. FOOTER WITH META HACKATHON ATTRIBUTION */}
+      <footer className="border-t border-gray-800/80 bg-[#090d16] px-6 py-4 flex flex-wrap items-center justify-between text-xs text-gray-500 gap-4">
         <div className="flex items-center gap-2">
           <span>Built for the <strong>Meta Global AI Developer Hackathon</strong></span>
           <span>·</span>
-          <span>Indie Developer Track</span>
+          <span>Track: Indie Developer ($150,000 1st Prize)</span>
         </div>
         <div className="flex items-center gap-4">
-          <span>SAM 3.1</span>
+          <span>Meta SAM 3.1</span>
           <span>·</span>
-          <span>Muse Voice Transcribe</span>
+          <span>Meta Muse Voice</span>
           <span>·</span>
-          <span>Muse Spark</span>
+          <span>Meta Muse Spark & Llama 3</span>
           <span>·</span>
-          <span className="text-cyan-400 font-semibold">Zero-Storage Ephemeral Memory</span>
+          <span className="text-emerald-400 font-semibold">10s Ephemeral RAM Buffer</span>
         </div>
       </footer>
     </div>

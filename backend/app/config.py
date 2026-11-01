@@ -27,9 +27,11 @@ MOCK_MODE = os.getenv("MOCK_MODE", "True").lower() in ("true", "1", "yes") or is
 DATA_DIR = BASE_DIR / "data"
 THUMBNAILS_DIR = DATA_DIR / "thumbnails"
 SCENES_DIR = DATA_DIR / "sample_scenes"
-DB_PATH = DATA_DIR / "spatial_memory.db"
+INCIDENTS_DIR = DATA_DIR / "incidents"
+DB_PATH = DATA_DIR / "aegis_sentinel.db"
 
 # Ensure runtime directories exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
 SCENES_DIR.mkdir(parents=True, exist_ok=True)
+INCIDENTS_DIR.mkdir(parents=True, exist_ok=True)
