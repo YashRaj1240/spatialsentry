@@ -8,11 +8,96 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
+const DEFAULT_INCIDENTS = [
+  {
+    id: 1,
+    incident_type: "theft_attempt",
+    severity: "CRITICAL",
+    target_item: "Brown Leather Handbag",
+    location_context: "Coffee Shop Table (Outdoor Patio, 4th & Pine)",
+    suspect_description: "Suspect in grey jacket & white sneakers, rapid right-hand grab",
+    displacement_velocity: 4.8,
+    bounding_box: [320, 180, 490, 390],
+    segmentation_polygon: [[320, 185], [480, 180], [490, 385], [325, 390]],
+    frame_path: "sample_scenes/cafe_theft_intercept.jpg",
+    evidence_thumbnail: "thumbnails/wallet.jpg",
+    ai_forensic_report: "PERIMETER BREACH INTERCEPTED: High-velocity snatch vector detected on protected handbag while user gaze was averted. Audible deterrent siren triggered at 85dB. Suspect aborted grab and fled eastward on foot.",
+    timestamp: new Date(Date.now() - 24 * 60 * 1000).toISOString()
+  },
+  {
+    id: 2,
+    incident_type: "pocket_extraction_breach",
+    severity: "CRITICAL",
+    target_item: "iPhone 15 Pro (Titanium Black)",
+    location_context: "Metro Station Escalator (Crowded Transit)",
+    suspect_description: "Unidentified individual extracted device from coat pocket in crowded crowd",
+    displacement_velocity: 3.2,
+    bounding_box: [220, 240, 510, 420],
+    segmentation_polygon: [[225, 245], [505, 240], [510, 415], [220, 418]],
+    frame_path: "sample_scenes/office_desk.jpg",
+    evidence_thumbnail: "thumbnails/airpods.jpg",
+    ai_forensic_report: "POCKET EXTRACTION DETECTED: Device transitioned from 0 lux darkness to ambient light with 1.8g lift while owner was stationary. Extraction Chime sounded and suspect evidence locked.",
+    timestamp: new Date(Date.now() - 75 * 60 * 1000).toISOString()
+  }
+];
+
+const DEFAULT_MEMORIES = [
+  {
+    id: 1,
+    object_name: "apartment keys with carbon fob",
+    category: "personal_items",
+    room_context: "Kitchen island, resting beside the ceramic bowl",
+    confidence: 0.99,
+    bounding_box: [340, 210, 430, 310],
+    segmentation_polygon: [[340, 210], [420, 215], [430, 305], [345, 300]],
+    thumbnail_path: "thumbnails/keys.jpg",
+    frame_path: "sample_scenes/kitchen_counter.jpg",
+    timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString()
+  },
+  {
+    id: 2,
+    object_name: "wireless earbuds (AirPods Pro)",
+    category: "personal_items",
+    room_context: "Work desk table, resting right on the surface",
+    confidence: 0.99,
+    bounding_box: [280, 210, 420, 340],
+    segmentation_polygon: [[280, 215], [410, 210], [420, 335], [285, 340]],
+    thumbnail_path: "thumbnails/airpods.jpg",
+    frame_path: "sample_scenes/office_desk.jpg",
+    timestamp: new Date(Date.now() - 35 * 60 * 1000).toISOString()
+  },
+  {
+    id: 3,
+    object_name: "clothing iron and power cord",
+    category: "home_safety",
+    room_context: "Laundry room board, unplugged and set upright",
+    confidence: 0.98,
+    bounding_box: [180, 290, 290, 390],
+    segmentation_polygon: [[185, 295], [285, 290], [290, 385], [180, 380]],
+    thumbnail_path: "thumbnails/wallet.jpg",
+    frame_path: "sample_scenes/entryway.jpg",
+    timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
+  },
+  {
+    id: 4,
+    object_name: "leather wallet with cards",
+    category: "personal_items",
+    room_context: "Bedroom nightstand beside the charging dock",
+    confidence: 0.97,
+    bounding_box: [310, 200, 430, 320],
+    segmentation_polygon: [[310, 205], [425, 200], [430, 315], [315, 320]],
+    thumbnail_path: "thumbnails/wallet.jpg",
+    frame_path: "sample_scenes/office_desk.jpg",
+    timestamp: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
+  }
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'vault', 'assistant'
   const [isArmed, setIsArmed] = useState(true);
   const [activeAlarm, setActiveAlarm] = useState(null); // stores active incident if alarm is firing
-  const [incidents, setIncidents] = useState([]);
+  const [incidents, setIncidents] = useState(DEFAULT_INCIDENTS);
+  const [memories, setMemories] = useState(DEFAULT_MEMORIES);
   const [bufferStats, setBufferStats] = useState(null);
   const [healthData, setHealthData] = useState(null);
 
@@ -26,7 +111,7 @@ export default function App() {
   const sirenOscRef = useRef(null);
 
   // Pocket & Purse Extraction Guardian states
-  const [pocketPopup, setPocketPopup] = useState(null); // { active: boolean, timestamp: string }
+  const [extractionToast, setExtractionToast] = useState('');
   const [isPocketDark, setIsPocketDark] = useState(false);
   const wasDarkRef = useRef(false);
 
@@ -35,6 +120,7 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [assistantResult, setAssistantResult] = useState(null);
+  const recognitionRef = useRef(null);
 
   // Live Camera Object Memory Scanner states
   const [isScanningMemory, setIsScanningMemory] = useState(false);
@@ -44,7 +130,24 @@ export default function App() {
   // Fetch initial data & unlock mobile AudioContext on first touch
   useEffect(() => {
     fetchIncidents();
+    fetchMemories();
     fetchHealth();
+
+    // Restore any local camera-scanned memories
+    try {
+      const saved = localStorage.getItem('spatialsentry_local_memories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMemories(prev => {
+            const ids = new Set(parsed.map(p => p.id || p.object_name));
+            const remaining = prev.filter(m => !ids.has(m.id || m.object_name));
+            return [...parsed, ...remaining];
+          });
+        }
+      }
+    } catch(e) {}
+
     const interval = setInterval(fetchBufferStatus, 3000);
 
     // Mobile gesture unlock for Web Audio API
@@ -100,10 +203,30 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/sentinel/incidents`);
       if (res.ok) {
         const data = await res.json();
-        setIncidents(data.incidents || []);
+        if (data.incidents && data.incidents.length > 0) {
+          setIncidents(data.incidents);
+        }
       }
     } catch (e) {
       console.warn("Incidents fetch error:", e);
+    }
+  };
+
+  const fetchMemories = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/timeline`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.memories && data.memories.length > 0) {
+          setMemories(prev => {
+            const apiNames = new Set(data.memories.map(m => m.object_name.toLowerCase()));
+            const localOnly = prev.filter(m => !apiNames.has(m.object_name.toLowerCase()));
+            return [...data.memories, ...localOnly];
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Memories fetch error:", e);
     }
   };
 
@@ -207,19 +330,8 @@ export default function App() {
 
   const triggerPocketExtraction = () => {
     playExtractionChime();
-    setPocketPopup({
-      active: true,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    });
-  };
-
-  const handlePocketConfirmOwner = () => {
-    setPocketPopup(null);
-  };
-
-  const handlePocketReportTheft = () => {
-    setPocketPopup(null);
-    handleTriggerSnatch("Smartphone (Extracted from Pocket/Bag)");
+    setExtractionToast('📱 Phone extracted from pocket/bag · Spatial Guard Armed');
+    setTimeout(() => setExtractionToast(''), 3500);
   };
 
   // Trigger Simulated / Real Snatch Intercept
@@ -240,10 +352,31 @@ export default function App() {
         playSiren();
         fetchIncidents();
         fetchBufferStatus();
+        return;
       }
     } catch (err) {
-      console.error("Snatch trigger error:", err);
+      console.warn("Snatch trigger using standalone mode:", err);
     }
+
+    // Client-side fallback simulation for standalone / Vercel
+    const fallbackAlert = {
+      incident_id: Date.now(),
+      incident_type: "theft_attempt",
+      severity: "CRITICAL",
+      target_item: targetItem,
+      location_context: "Outdoor Cafe Table #4",
+      suspect_description: "Suspect in grey jacket & white sneakers, rapid right-hand grab",
+      displacement_velocity: 4.8,
+      bounding_box: [320, 180, 490, 390],
+      segmentation_polygon: [[320, 185], [480, 180], [490, 385], [325, 390]],
+      frame_path: "sample_scenes/cafe_theft_intercept.jpg",
+      evidence_thumbnail: "thumbnails/wallet.jpg",
+      ai_forensic_report: "PERIMETER BREACH INTERCEPTED: High-velocity snatch vector detected on protected valuable. Audible deterrent siren triggered at 85dB. Suspect aborted grab and fled eastward on foot.",
+      timestamp: new Date().toISOString()
+    };
+    setActiveAlarm(fallbackAlert);
+    playSiren();
+    setIncidents(prev => [fallbackAlert, ...prev]);
   };
 
   // Camera Management
@@ -346,6 +479,7 @@ export default function App() {
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
+        utterance.lang = 'en-US';
         window.speechSynthesis.speak(utterance);
       } catch (e) {
         console.warn("TTS Error:", e);
@@ -368,50 +502,177 @@ export default function App() {
       canvas.height = videoRef.current.videoHeight || 480;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
+      const objectName = (objectScanLabel || 'scanned object').trim().toLowerCase();
+      const newMemory = {
+        id: Date.now(),
+        session_id: 'live_camera_scan',
+        object_name: objectName,
+        category: 'personal_items',
+        room_context: 'table surface',
+        confidence: 0.99,
+        bounding_box: [260, 180, 480, 360],
+        segmentation_polygon: [[260, 185], [470, 180], [480, 355], [265, 360]],
+        thumbnail_path: 'thumbnails/airpods.jpg',
+        frame_path: dataUrl,
+        timestamp: new Date().toISOString()
+      };
+
+      setMemories(prev => [newMemory, ...prev]);
+      try {
+        const saved = JSON.parse(localStorage.getItem('spatialsentry_local_memories') || '[]');
+        localStorage.setItem('spatialsentry_local_memories', JSON.stringify([newMemory, ...saved.slice(0, 15)]));
+      } catch(e){}
+
+      setMemoryScanSuccess(`✨ Memorized: ${objectName} on table!`);
+      playExtractionChime();
+      speakText(`Got it! I have memorized your ${objectName} on the table.`);
+      setTimeout(() => setMemoryScanSuccess(''), 5000);
+
+      // Attempt backend persistence
       canvas.toBlob(async (blob) => {
-        if (!blob) {
-          setIsScanningMemory(false);
-          return;
-        }
+        if (!blob) return;
         const formData = new FormData();
         formData.append('frame', blob, 'camera_scan.jpg');
-        formData.append('object_name', objectScanLabel || 'wireless earbuds');
+        formData.append('object_name', objectName);
         formData.append('room_context', 'table surface');
-
         try {
-          const res = await fetch(`${API_BASE}/api/sentinel/register-memory`, {
+          await fetch(`${API_BASE}/api/sentinel/register-memory`, {
             method: 'POST',
             body: formData
           });
-
-          if (res.ok) {
-            const data = await res.json();
-            setMemoryScanSuccess(`✨ Memorized: ${data.object_name} on table!`);
-            playExtractionChime();
-            speakText(`Got it! I have memorized your ${data.object_name} on the table.`);
-            setTimeout(() => setMemoryScanSuccess(''), 5000);
-          }
-        } catch (e) {
-          console.error("Register memory failed:", e);
-        } finally {
-          setIsScanningMemory(false);
-        }
+        } catch(e){}
       }, 'image/jpeg', 0.85);
+
     } catch (err) {
       console.error("Scan error:", err);
+    } finally {
       setIsScanningMemory(false);
     }
   };
 
+  const formatTimeAgo = (isoString) => {
+    try {
+      const past = new Date(isoString);
+      const diffMs = Date.now() - past.getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'just a few seconds ago';
+      if (mins < 60) return `${mins} minute${mins > 1 ? 's' : ''} ago`;
+      const hours = Math.floor(mins / 60);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } catch(e) {
+      return 'recently';
+    }
+  };
+
+  // Client Spatial Memory Search Engine
+  const resolveSpatialQueryLocally = (queryText, candidateMemories) => {
+    const lower = queryText.toLowerCase();
+
+    const groups = {
+      keys: ['key', 'keys', 'fob', 'apartment key', 'car key', 'house key'],
+      earbuds: ['earbud', 'earbuds', 'airpod', 'airpods', 'headphone', 'headphones', 'earphones', 'buds', 'pods'],
+      iron: ['iron', 'ironing', 'cord', 'plug', 'unplugged', 'stove', 'burn', 'turned off'],
+      wallet: ['wallet', 'purse', 'card', 'cards', 'cash', 'money'],
+      phone: ['phone', 'iphone', 'mobile', 'smartphone', 'device', 'grabbed my phone'],
+      handbag: ['bag', 'handbag', 'purse', 'backpack', 'tote']
+    };
+
+    let matched = null;
+
+    // 1. Direct name match
+    for (const mem of candidateMemories) {
+      const name = mem.object_name.toLowerCase();
+      if (lower.includes(name) || name.split(' ').some(w => w.length > 3 && lower.includes(w))) {
+        matched = mem;
+        break;
+      }
+    }
+
+    // 2. Synonym groups
+    if (!matched) {
+      for (const [groupKey, words] of Object.entries(groups)) {
+        if (words.some(w => lower.includes(w))) {
+          matched = candidateMemories.find(m => {
+            const mName = m.object_name.toLowerCase();
+            return words.some(w => mName.includes(w)) || mName.includes(groupKey);
+          });
+          if (matched) break;
+        }
+      }
+    }
+
+    if (matched) {
+      const timeAgo = formatTimeAgo(matched.timestamp);
+      return {
+        found: true,
+        target_object: matched.object_name,
+        location_context: matched.room_context,
+        last_seen_timestamp: matched.timestamp,
+        confidence: matched.confidence || 0.99,
+        bounding_box: matched.bounding_box || [340, 210, 430, 310],
+        segmentation_polygon: matched.segmentation_polygon,
+        frame_path: matched.frame_path,
+        thumbnail_path: matched.thumbnail_path,
+        explanation: `I found your ${matched.object_name}. It was last observed on the ${matched.room_context} (${timeAgo}) with 99% confidence.`
+      };
+    }
+
+    const cleanItem = queryText
+      .replace(/where\s+(is|are|did\s+i\s+leave|did\s+i\s+put)\s+(my|the)?/gi, '')
+      .replace(/[?!.]/g, '')
+      .trim();
+
+    return {
+      found: false,
+      target_object: cleanItem || queryText,
+      location_context: "Not in active spatial memory",
+      confidence: 0.1,
+      explanation: `I searched the 24/7 memory graph, but I haven't observed your ${cleanItem || 'item'} yet. Aim your camera and tap 'Scan & Remember' to memorize it.`
+    };
+  };
+
   // Assistant Query
   const handleSearch = async (queryText) => {
-    const q = queryText || query;
-    if (!q.trim()) return;
+    const q = (queryText || query).trim();
+    if (!q) return;
 
     setIsSearching(true);
     setAssistantResult(null);
 
+    const lowerQ = q.toLowerCase();
+
+    // Check for conversation completion / closing phrases
+    const CLOSING_PATTERNS = [
+      'thank', 'thanks', 'no question', 'no questions',
+      'nothing', 'nope', 'bye', 'goodbye', 'that is all', "that's all",
+      'all good', 'stop', 'nevermind', 'never mind', 'ok thank', 'okay thank'
+    ];
+    const isClosing = CLOSING_PATTERNS.some(p => lowerQ.includes(p));
+    if (isClosing) {
+      setIsSearching(false);
+      setIsRecording(false);
+      let responseText = "You're welcome! Spatial Sentry guard is standing by.";
+      if (lowerQ.includes('no question') || lowerQ.includes('nothing') || lowerQ.includes("that's all") || lowerQ.includes('all good')) {
+        responseText = "Understood. Spatial Sentry is active and keeping 24/7 watch.";
+      } else if (lowerQ.includes('bye') || lowerQ.includes('goodbye')) {
+        responseText = "Goodbye! Spatial Sentry will continue monitoring in the background.";
+      }
+      const closureResult = {
+        found: true,
+        is_closure: true,
+        target_object: "Spatial Sentry Guard",
+        location_context: "Active Sentinel Radar",
+        confidence: 1.0,
+        explanation: responseText
+      };
+      setAssistantResult(closureResult);
+      speakText(responseText);
+      return;
+    }
+
+    // 1. Try backend Meta Muse Spark query
     try {
       const res = await fetch(`${API_BASE}/api/query-text`, {
         method: 'POST',
@@ -425,64 +686,82 @@ export default function App() {
         if (data.explanation) {
           speakText(data.explanation);
         }
+        setIsRecording(false);
+        setIsSearching(false);
+        return;
       }
     } catch (err) {
-      console.error("Query failed:", err);
-    } finally {
-      setIsSearching(false);
+      console.warn("Backend query unavailable, resolving via local spatial memory engine:", err);
     }
+
+    // 2. Client-side Spatial Memory Engine
+    const localResult = resolveSpatialQueryLocally(q, memories);
+    setAssistantResult(localResult);
+    if (localResult.explanation) {
+      speakText(localResult.explanation);
+    }
+    setIsRecording(false);
+    setIsSearching(false);
   };
 
+  // Hands-Free Voice Toggle
   const handleVoiceToggle = () => {
     if (isRecording) {
       setIsRecording(false);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(e){}
+      }
       return;
     }
 
-    setIsRecording(true);
-    // Try browser Web Speech API for real-time speech-to-text
+    // Gesture unlock speech synthesis
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const silent = new SpeechSynthesisUtterance(' ');
+        silent.volume = 0;
+        window.speechSynthesis.speak(silent);
+      } catch(e){}
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+          setIsRecording(true);
+        };
+
         recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           setQuery(transcript);
           setIsRecording(false);
           handleSearch(transcript);
         };
-        recognition.onerror = () => {
-          fallbackVoiceSimulation();
+
+        recognition.onerror = (event) => {
+          console.warn("Speech recognition error:", event.error);
+          setIsRecording(false);
         };
+
         recognition.onend = () => {
           setIsRecording(false);
         };
-        recognition.start();
-        return;
-      } catch (err) {
-        fallbackVoiceSimulation();
-        return;
-      }
-    }
-    fallbackVoiceSimulation();
-  };
 
-  const fallbackVoiceSimulation = () => {
-    setTimeout(() => {
+        recognition.start();
+      } catch (err) {
+        console.warn("Speech recognition start failed:", err);
+        setIsRecording(false);
+      }
+    } else {
       setIsRecording(false);
-      const prompts = [
-        "Where are my earbuds?",
-        "Where are my apartment keys?",
-        "Did someone grab my phone?",
-        "Did I unplug the iron?"
-      ];
-      const chosen = prompts[Math.floor(Math.random() * prompts.length)];
-      setQuery(chosen);
-      handleSearch(chosen);
-    }, 2200);
+      alert("Voice recognition is not supported in this browser. Please type your question in the search bar.");
+    }
   };
 
   // Render SVG SAM 3.1 Bounding Polygon & Box
@@ -619,45 +898,20 @@ export default function App() {
         </div>
       )}
 
-      {/* 2.5 POCKET & PURSE EXTRACTION POPUP (NON-INTRUSIVE CHIME & VERIFICATION) */}
-      {pocketPopup && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="bg-[#0f172a]/95 backdrop-blur-xl border-2 border-cyan-400/80 rounded-2xl p-4 shadow-2xl shadow-cyan-950/80 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shrink-0">
-                <Smartphone className="w-5 h-5 animate-bounce" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-                    ✨ Extraction Chime Sounded
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-mono">{pocketPopup.timestamp}</span>
-                </div>
-                <h4 className="text-sm font-bold text-gray-100 mt-0.5">
-                  Phone Removed from Pocket / Bag
-                </h4>
-                <p className="text-xs text-gray-300 mt-1 leading-relaxed">
-                  Did you just remove your phone? If you did not, someone nearby may have pulled it from your purse or coat.
-                </p>
-              </div>
+      {/* 2.5 POCKET & PURSE EXTRACTION NOTIFICATION BANNER */}
+      {extractionToast && (
+        <div className="fixed top-18 left-1/2 -translate-x-1/2 z-50 max-w-sm w-full px-4 animate-in fade-in slide-in-from-top-3 duration-300 pointer-events-none">
+          <div className="bg-[#0f172a]/95 backdrop-blur-xl border border-cyan-400/60 rounded-2xl px-4 py-3 shadow-2xl shadow-cyan-950/80 flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shrink-0">
+              <Smartphone className="w-4 h-4 text-cyan-400" />
             </div>
-
-            <div className="flex items-center gap-2.5 pt-1">
-              <button
-                onClick={handlePocketConfirmOwner}
-                className="flex-1 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-                Yes, It's Me (Dismiss)
-              </button>
-              <button
-                onClick={handlePocketReportTheft}
-                className="py-2 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-950/50 transition-all flex items-center gap-1.5"
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                Not Me! (Lock Evidence)
-              </button>
+            <div className="flex-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 block">
+                ✨ Extraction Chime Sounded
+              </span>
+              <p className="text-xs font-semibold text-gray-200 mt-0.5">
+                {extractionToast}
+              </p>
             </div>
           </div>
         </div>
@@ -919,21 +1173,14 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* SIMULATE THEFT BUTTON (The Hackathon Winner Feature) */}
+                  {/* Emergency Snatch Test Button */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={triggerPocketExtraction}
-                      className="px-3.5 py-2 rounded-xl bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
-                    >
-                      <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
-                      Test Pocket Extraction Popup
-                    </button>
                     <button
                       onClick={() => handleTriggerSnatch("Smartphone (Handbag Snatch Attempt)")}
                       className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-950/50 transition-all flex items-center gap-2"
                     >
                       <Zap className="w-4 h-4 animate-bounce" />
-                      Test Snatch Intercept
+                      🚨 Test Snatch Intercept
                     </button>
                   </div>
                 </div>
@@ -1109,12 +1356,13 @@ export default function App() {
 
               {/* Quick Prompt Pills */}
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-gray-500">Quick tests:</span>
+                <span className="text-gray-500 font-medium">Try asking:</span>
                 {[
-                  "Where are my earbuds?",
                   "Where are my apartment keys?",
-                  "Did someone grab my phone?",
-                  "Did I unplug the iron?"
+                  "Where are my earbuds?",
+                  "Did I unplug the iron?",
+                  "Where is my wallet?",
+                  "Thank you, that's all"
                 ].map((promptText, idx) => (
                   <button
                     key={idx}
@@ -1122,11 +1370,41 @@ export default function App() {
                       setQuery(promptText);
                       handleSearch(promptText);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-indigo-950/60 border border-gray-800 hover:border-indigo-700 text-gray-300 hover:text-indigo-300 transition-all"
+                    className="px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-indigo-950/60 border border-gray-800 hover:border-indigo-700 text-gray-300 hover:text-indigo-300 transition-all cursor-pointer"
                   >
                     {promptText}
                   </button>
                 ))}
+              </div>
+
+              {/* Active Spatial Memory Stored Objects */}
+              <div className="mt-2 pt-3 border-t border-gray-800/80">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                    <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
+                    Stored 24/7 Camera Memories ({memories.length})
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-mono">Real-time Search Active</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {memories.slice(0, 4).map((m, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        const ask = `Where is my ${m.object_name.split('(')[0].trim()}?`;
+                        setQuery(ask);
+                        handleSearch(ask);
+                      }}
+                      className="p-2.5 rounded-xl bg-gray-900/80 hover:bg-gray-800/80 border border-gray-800/80 hover:border-cyan-500/40 transition-all cursor-pointer flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 group-hover:scale-125 transition-transform"></span>
+                        <span className="font-semibold text-gray-200 capitalize truncate">{m.object_name}</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500 shrink-0">{m.room_context.split(',')[0]}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1134,58 +1412,98 @@ export default function App() {
             {isSearching ? (
               <div className="p-12 rounded-2xl bg-[#090d16] border border-gray-800 flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin" />
-                <p className="text-sm text-gray-300">Searching 10-second rolling buffer and security ledger...</p>
+                <p className="text-sm text-gray-300">Searching 24/7 spatial memory graph and Meta reasoning model...</p>
               </div>
             ) : assistantResult ? (
-              <div className="bg-[#090d16] border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">
-                      {assistantResult.is_incident ? '🚨 Security Threat Found' : 'Verified Observation'}
-                    </span>
-                    <h3 className="text-xl font-bold text-gray-100 capitalize mt-1">
-                      {assistantResult.target_object}
-                    </h3>
+              assistantResult.is_closure ? (
+                <div className="bg-[#090d16] border border-cyan-500/40 rounded-2xl p-6 shadow-xl flex items-center justify-between gap-4 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                      <CheckCircle2 className="w-6 h-6 text-cyan-400" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">
+                        Conversation Goal Completed
+                      </span>
+                      <p className="text-sm font-semibold text-gray-100 mt-0.5">
+                        {assistantResult.explanation}
+                      </p>
+                    </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    assistantResult.is_incident ? 'bg-rose-950/80 text-rose-300 border border-rose-800' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                  }`}>
-                    {assistantResult.is_incident ? 'Incident Locked' : 'Verified Safe'}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-gray-900 border border-gray-800 text-sm text-gray-200 leading-relaxed flex items-center justify-between gap-3">
-                  <span>{assistantResult.explanation}</span>
                   <button
                     onClick={() => speakText(assistantResult.explanation)}
-                    title="Speak answer aloud"
-                    className="p-2 rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 shrink-0 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                    title="Speak again"
+                    className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 shrink-0 transition-all flex items-center gap-1.5 text-xs font-semibold"
                   >
                     <Volume2 className="w-4 h-4" />
                     <span>Speak</span>
                   </button>
                 </div>
+              ) : (
+                <div className="bg-[#090d16] border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4 animate-in fade-in duration-300">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">
+                        {assistantResult.is_incident ? '🚨 Security Threat Intercepted' : (assistantResult.found ? 'Verified Observation' : 'Item Not Found')}
+                      </span>
+                      <h3 className="text-xl font-bold text-gray-100 capitalize mt-1">
+                        {assistantResult.target_object}
+                      </h3>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      assistantResult.is_incident 
+                        ? 'bg-rose-950/80 text-rose-300 border border-rose-800' 
+                        : (assistantResult.found ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-gray-800 text-gray-400')
+                    }`}>
+                      {assistantResult.is_incident ? 'Incident Locked' : (assistantResult.found ? 'Verified Safe' : 'Unobserved')}
+                    </span>
+                  </div>
 
-                <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-gray-800">
-                  <img
-                    src={`${API_BASE}/data/${assistantResult.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
-                    alt="Result View"
-                    className="w-full h-full object-cover"
-                  />
-                  {renderSAMOverlay(assistantResult.bounding_box, assistantResult.segmentation_polygon, assistantResult.is_incident)}
+                  <div className="p-4 rounded-xl bg-gray-900 border border-gray-800 text-sm text-gray-200 leading-relaxed flex items-center justify-between gap-3">
+                    <span className="font-medium">{assistantResult.explanation}</span>
+                    <button
+                      onClick={() => speakText(assistantResult.explanation)}
+                      title="Speak answer aloud"
+                      className="p-2 rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 shrink-0 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      <span>Speak</span>
+                    </button>
+                  </div>
+
+                  {assistantResult.found && (
+                    <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-gray-800">
+                      <img
+                        src={
+                          assistantResult.frame_path
+                            ? (assistantResult.frame_path.startsWith('data:') || assistantResult.frame_path.startsWith('http')
+                                ? assistantResult.frame_path
+                                : `${API_BASE}/data/${assistantResult.frame_path}`)
+                            : 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80'
+                        }
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80';
+                        }}
+                        alt="Result View"
+                        className="w-full h-full object-cover"
+                      />
+                      {renderSAMOverlay(assistantResult.bounding_box, assistantResult.segmentation_polygon, assistantResult.is_incident)}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )
             ) : null}
           </div>
         )}
       </main>
 
-      {/* 5. FOOTER WITH META HACKATHON ATTRIBUTION */}
+      {/* 5. FOOTER */}
       <footer className="border-t border-gray-800/80 bg-[#090d16] px-6 py-4 flex flex-wrap items-center justify-between text-xs text-gray-500 gap-4">
         <div className="flex items-center gap-2">
-          <span>Built for the <strong>Meta Global AI Developer Hackathon</strong></span>
+          <Shield className="w-4 h-4 text-cyan-400" />
+          <span className="font-semibold text-gray-300">SpatialSentry AI Sentinel</span>
           <span>·</span>
-          <span>Track: Indie Developer ($150,000 1st Prize)</span>
+          <span>24/7 Ephemeral Smartphone Bodyguard & Spatial Memory</span>
         </div>
         <div className="flex items-center gap-4">
           <span>Meta SAM 3.1</span>
