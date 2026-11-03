@@ -1,7 +1,7 @@
 # 📱🛡️ SpatialSentry — 24/7 Ephemeral AI Smartphone Bodyguard & Spatial Memory Sentinel
 
 > **Continuous Smartphone Protection, Snatch Deterrence & Pocket Extraction Guardian Powered by Meta AI**  
-> *Built for the Meta Global AI Developer Hackathon 2026 · Track: Indie Developer ($150,000 1st Prize)*
+> *24/7 Ephemeral AI Smartphone Bodyguard & Spatial Memory Sentinel*
 
 [![Meta Model API](https://img.shields.io/badge/Meta%20AI-SAM%203.1%20%7C%20Muse%20%7C%20Llama%203-0081FB?logo=meta)](https://dev.meta.ai/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
