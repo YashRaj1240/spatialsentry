@@ -218,9 +218,33 @@ def seed_default_sentinel_data():
         demo_memories = [
             {
                 "session_id": "ambient_sentinel_morning",
+                "object_name": "computer mouse",
+                "category": "personal_items",
+                "room_context": "Work desk table surface, resting right beside the laptop keyboard",
+                "confidence": 0.99,
+                "bounding_box": [320, 240, 420, 340],
+                "segmentation_polygon": [[320, 245], [415, 240], [420, 335], [325, 340]],
+                "thumbnail_path": "thumbnails/keys.jpg",
+                "frame_path": "sample_scenes/office_desk.jpg",
+                "timestamp": (now - timedelta(minutes=3)).isoformat()
+            },
+            {
+                "session_id": "ambient_sentinel_morning",
+                "object_name": "phone charger & cable",
+                "category": "personal_items",
+                "room_context": "Work desk surface, resting near the power adapter strip",
+                "confidence": 0.98,
+                "bounding_box": [240, 210, 360, 320],
+                "segmentation_polygon": [[240, 215], [355, 210], [360, 315], [245, 320]],
+                "thumbnail_path": "thumbnails/airpods.jpg",
+                "frame_path": "sample_scenes/office_desk.jpg",
+                "timestamp": (now - timedelta(minutes=7)).isoformat()
+            },
+            {
+                "session_id": "ambient_sentinel_morning",
                 "object_name": "wireless earbuds (AirPods)",
                 "category": "personal_items",
-                "room_context": "Work desk table, resting right on the surface",
+                "room_context": "Work desk table, resting right on the surface beside the notebook",
                 "confidence": 0.99,
                 "bounding_box": [280, 210, 420, 340],
                 "segmentation_polygon": [[280, 215], [410, 210], [420, 335], [285, 340]],

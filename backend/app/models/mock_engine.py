@@ -50,16 +50,39 @@ def mock_sentinel_snatch_analysis(
     }
 
 SYNONYM_GROUPS = {
+    "mouse": ["mouse", "computer mouse", "wireless mouse", "bluetooth mouse", "magic mouse", "trackpad", "pointer"],
+    "charger": ["charger", "phone charger", "charging cable", "cable", "adapter", "power cord", "wire", "usb cable", "plug"],
     "earbuds": ["earbuds", "earbud", "airpods", "airpod", "headphones", "headphone", "buds", "earphones", "earphone", "audio", "pods"],
-    "keys": ["keys", "key", "fob", "keychain", "car keys", "apartment keys"],
-    "phone": ["phone", "smartphone", "iphone", "mobile", "device", "handset", "cellphone"],
-    "wallet": ["wallet", "purse", "cardholder", "cards", "money"],
+    "keys": ["keys", "key", "fob", "keychain", "car keys", "apartment keys", "carbon fob"],
+    "phone": ["phone", "smartphone", "iphone", "mobile", "device", "handset", "cellphone", "android"],
+    "wallet": ["wallet", "purse", "cardholder", "cards", "money", "cash"],
+    "laptop": ["laptop", "computer", "macbook", "pc", "notebook", "screen", "keyboard"],
     "iron": ["iron", "clothing iron", "flat iron", "unplugged iron"],
     "handbag": ["handbag", "bag", "backpack", "tote", "purse"],
-    "glasses": ["glasses", "spectacles", "sunglasses", "shades"],
+    "glasses": ["glasses", "spectacles", "sunglasses", "shades", "reading glasses"],
+    "bottle": ["bottle", "water bottle", "flask", "thermos", "tumbler", "sipper"],
+    "cup": ["cup", "mug", "coffee mug", "glass", "teacup"],
     "watch": ["watch", "smartwatch", "apple watch", "timepiece"],
-    "charger": ["charger", "cable", "adapter", "power cord"],
+    "book": ["book", "notebook", "diary", "journal", "pad"],
+    "pen": ["pen", "pencil", "marker", "stylus"]
 }
+
+def extract_target_object(raw_query: str) -> str:
+    """Extracts canonical object name, stripping conversational fillers and questions"""
+    lower = raw_query.lower().strip()
+    for group_key, words in SYNONYM_GROUPS.items():
+        for w in words:
+            if re.search(rf"\b{re.escape(w)}\b", lower):
+                return group_key
+    
+    # Strip conversational noise
+    cleaned = re.sub(r'^(hey|hi|hello|ok|okay|sentry)\b', '', lower)
+    cleaned = re.sub(r'^(do\s+you\s+know|you\s+know|can\s+you\s+tell\s+me|tell\s+me|please\s+tell\s+me|could\s+you\s+tell\s+me|do\s+you\s+remember|can\s+you\s+find|find|search\s+for|look\s+for|have\s+you\s+seen|did\s+you\s+see)\b', '', cleaned)
+    cleaned = re.sub(r'\b(where\s+(is|are|was|were|did\s+i\s+(leave|put|keep)|did\s+someone\s+take))\b', '', cleaned)
+    cleaned = re.sub(r'\b(i\s+am\s+not\s+able\s+to\s+remember|i\s+cannot\s+remember|i\s+can\'t\s+remember|i\s+forgot|i\s+am\s+forgetting|not\s+able\s+to\s+remember|cant\s+remember)\b', '', cleaned)
+    cleaned = re.sub(r'\b(my|the|a|an|any|some|you\s+know|please|now|today|earlier)\b', '', cleaned)
+    cleaned = re.sub(r'[?!.,]', '', cleaned).strip()
+    return cleaned or "item"
 
 def expand_query_keywords(keywords: List[str]) -> set:
     expanded = set(keywords)
@@ -75,9 +98,17 @@ def mock_muse_spark_reasoning(
     incidents: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """Simulates Muse Spark temporal, safety & spatial reasoning over the episodic sentinel graph"""
+    target_clean = extract_target_object(query)
     words = [re.sub(r'[^\w]', '', w.lower()) for w in query.split()]
-    stopwords = {"where", "what", "when", "which", "did", "have", "left", "leave", "find", "seen", "show", "tell", "about", "your", "mine", "this", "that", "there", "here", "with", "from", "someone", "the", "are", "is", "my"}
+    stopwords = {
+        "where", "what", "when", "which", "did", "have", "left", "leave", "find", 
+        "seen", "show", "tell", "about", "your", "mine", "this", "that", "there", 
+        "here", "with", "from", "someone", "the", "are", "is", "my", "you", "know", 
+        "remember", "able", "not", "cant", "cannot", "please", "can", "could", "would"
+    }
     raw_keywords = [w for w in words if len(w) >= 3 and w not in stopwords]
+    if target_clean and target_clean not in raw_keywords:
+        raw_keywords.append(target_clean)
     query_keywords = expand_query_keywords(raw_keywords)
 
     # Check incidents first (safety / theft related)
@@ -132,6 +163,6 @@ def mock_muse_spark_reasoning(
 
     return {
         "found": False,
-        "target_object": query,
-        "explanation": f"I scanned your recent memory timeline, but did not find any recorded observation of '{query}'. You can tap 'Scan & Remember' on the Live Radar to index it right now!"
+        "target_object": target_clean,
+        "explanation": f"I scanned your 24/7 camera memory, but did not find any recorded observation of '{target_clean}'. Spatial Sentry is continuously monitoring your room."
     }
