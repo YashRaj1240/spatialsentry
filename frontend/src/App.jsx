@@ -6,6 +6,8 @@ import {
   CheckCircle2, Search, Mic, ArrowRight, Zap, Volume2, VolumeX
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'vault', 'assistant'
   const [isArmed, setIsArmed] = useState(true);
@@ -68,7 +70,7 @@ export default function App() {
 
   const fetchHealth = async () => {
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(`${API_BASE}/api/health`);
       if (res.ok) {
         const data = await res.json();
         setHealthData(data);
@@ -83,7 +85,7 @@ export default function App() {
 
   const fetchBufferStatus = async () => {
     try {
-      const res = await fetch('/api/sentinel/status');
+      const res = await fetch(`${API_BASE}/api/sentinel/status`);
       if (res.ok) {
         const data = await res.json();
         setBufferStats(data);
@@ -95,7 +97,7 @@ export default function App() {
 
   const fetchIncidents = async () => {
     try {
-      const res = await fetch('/api/sentinel/incidents');
+      const res = await fetch(`${API_BASE}/api/sentinel/incidents`);
       if (res.ok) {
         const data = await res.json();
         setIncidents(data.incidents || []);
@@ -108,7 +110,7 @@ export default function App() {
   // Toggle Arm / Disarm Perimeter
   const toggleArm = async () => {
     try {
-      const res = await fetch('/api/sentinel/toggle-arm', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/sentinel/toggle-arm`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setIsArmed(data.is_armed);
@@ -223,7 +225,7 @@ export default function App() {
   // Trigger Simulated / Real Snatch Intercept
   const handleTriggerSnatch = async (targetItem = "Designer Leather Handbag") => {
     try {
-      const res = await fetch('/api/sentinel/trigger-snatch', {
+      const res = await fetch(`${API_BASE}/api/sentinel/trigger-snatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -378,7 +380,7 @@ export default function App() {
         formData.append('room_context', 'table surface');
 
         try {
-          const res = await fetch('/api/sentinel/register-memory', {
+          const res = await fetch(`${API_BASE}/api/sentinel/register-memory`, {
             method: 'POST',
             body: formData
           });
@@ -411,7 +413,7 @@ export default function App() {
     setAssistantResult(null);
 
     try {
-      const res = await fetch('/api/query-text', {
+      const res = await fetch(`${API_BASE}/api/query-text`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q })
@@ -729,7 +731,7 @@ export default function App() {
                   {activeAlarm ? (
                     <>
                       <img
-                        src={`/data/${activeAlarm.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
+                        src={`${API_BASE}/data/${activeAlarm.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
                         alt="Theft Intercept Frame"
                         className="w-full h-full object-cover"
                       />
@@ -1036,7 +1038,7 @@ export default function App() {
                   {/* Evidence Image with SAM 3.1 Overlay */}
                   <div className="relative aspect-[16/9] bg-black rounded-xl overflow-hidden border border-gray-800">
                     <img
-                      src={`/data/${inc.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
+                      src={`${API_BASE}/data/${inc.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
                       alt={inc.target_item}
                       className="w-full h-full object-cover"
                     />
@@ -1166,7 +1168,7 @@ export default function App() {
 
                 <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-gray-800">
                   <img
-                    src={`/data/${assistantResult.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
+                    src={`${API_BASE}/data/${assistantResult.frame_path || 'sample_scenes/cafe_theft_intercept.jpg'}`}
                     alt="Result View"
                     className="w-full h-full object-cover"
                   />
