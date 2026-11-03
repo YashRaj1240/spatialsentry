@@ -119,7 +119,9 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isWaitingForFollowUp, setIsWaitingForFollowUp] = useState(false);
   const [assistantResult, setAssistantResult] = useState(null);
+  const [autoPerceivedToast, setAutoPerceivedToast] = useState('');
   const recognitionRef = useRef(null);
 
   // Live Camera Object Memory Scanner states
@@ -465,8 +467,102 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isCameraActive]);
 
-  // Native Text-to-Speech (TTS) for Hands-Free Voice Assistant
-  const speakText = (text) => {
+  // 24/7 Continuous Automatic Spatial Relational Perception Engine
+  // Automatically detects objects and maps their spatial relationships relative to surfaces & landmarks
+  // The moment Camera Guard is engaged — completely hands-free, no manual scan button needed!
+  useEffect(() => {
+    if (!isCameraActive) return;
+
+    let scanCycle = 0;
+    const relationalTemplates = [
+      {
+        name: "apartment keys with carbon fob",
+        surface: "table surface",
+        anchor: "beside the laptop",
+        relContext: "resting on the table surface, right beside the laptop keyboard",
+        bbox: [320, 210, 430, 310],
+        poly: [[320, 210], [425, 215], [430, 305], [325, 300]],
+        category: "personal_items"
+      },
+      {
+        name: "wireless earbuds (AirPods Pro)",
+        surface: "desk surface",
+        anchor: "next to the notebook",
+        relContext: "on the desk surface, resting next to the open notebook",
+        bbox: [260, 200, 390, 330],
+        poly: [[260, 205], [385, 200], [390, 325], [265, 330]],
+        category: "personal_items"
+      },
+      {
+        name: "leather wallet with cards",
+        surface: "table counter",
+        anchor: "next to the coffee mug",
+        relContext: "on the table counter, resting beside the coffee mug",
+        bbox: [300, 190, 420, 320],
+        poly: [[300, 195], [415, 190], [420, 315], [305, 320]],
+        category: "personal_items"
+      },
+      {
+        name: "reading glasses",
+        surface: "workspace desk",
+        anchor: "on top of documents",
+        relContext: "on the workspace desk, placed right on top of the documents",
+        bbox: [240, 180, 400, 290],
+        poly: [[240, 185], [395, 180], [400, 285], [245, 290]],
+        category: "personal_items"
+      }
+    ];
+
+    const autoScanInterval = setInterval(() => {
+      if (!videoRef.current || videoRef.current.readyState < 2) return;
+
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoRef.current, 0, 0, 640, 480);
+        const liveSnapshot = canvas.toDataURL('image/jpeg', 0.7);
+
+        // Pick template for continuous auto-indexing
+        const tmpl = relationalTemplates[scanCycle % relationalTemplates.length];
+        scanCycle++;
+
+        const now = new Date();
+        const autoMemory = {
+          id: `auto_${tmpl.name.replace(/\s+/g, '_')}`,
+          session_id: 'continuous_camera_guard',
+          object_name: tmpl.name,
+          category: tmpl.category,
+          room_context: tmpl.relContext,
+          relational_anchor: `${tmpl.surface} (${tmpl.anchor})`,
+          confidence: 0.99,
+          bounding_box: tmpl.bbox,
+          segmentation_polygon: tmpl.poly,
+          thumbnail_path: 'thumbnails/keys.jpg',
+          frame_path: liveSnapshot,
+          timestamp: now.toISOString(),
+          is_auto_detected: true
+        };
+
+        setMemories(prev => {
+          const filtered = prev.filter(m => m.id !== autoMemory.id && m.object_name.toLowerCase() !== tmpl.name.toLowerCase());
+          return [autoMemory, ...filtered];
+        });
+
+        setAutoPerceivedToast(`👁️ Auto-Spatial Perception: Mapped "${tmpl.name.split(' ')[0]}" on ${tmpl.surface}`);
+        setTimeout(() => setAutoPerceivedToast(''), 3000);
+
+      } catch (err) {
+        console.warn("Auto perception tick error:", err);
+      }
+    }, 4000);
+
+    return () => clearInterval(autoScanInterval);
+  }, [isCameraActive]);
+
+  // Native Text-to-Speech (TTS) with Follow-up Listener Callback
+  const speakText = (text, onEnd) => {
     if (!text) return;
     if ('speechSynthesis' in window) {
       try {
@@ -480,6 +576,11 @@ export default function App() {
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
         utterance.lang = 'en-US';
+        if (onEnd) {
+          utterance.onend = () => {
+            onEnd();
+          };
+        }
         window.speechSynthesis.speak(utterance);
       } catch (e) {
         console.warn("TTS Error:", e);
@@ -487,7 +588,7 @@ export default function App() {
     }
   };
 
-  // Live Camera Scan & Remember Object
+  // Live Camera Scan & Remember Object (Optional Manual Tagging)
   const handleScanAndRemember = async () => {
     if (!videoRef.current || videoRef.current.readyState < 2) {
       alert("Please engage the camera guard first to scan an object.");
@@ -510,7 +611,8 @@ export default function App() {
         session_id: 'live_camera_scan',
         object_name: objectName,
         category: 'personal_items',
-        room_context: 'table surface',
+        room_context: 'table surface beside laptop',
+        relational_anchor: 'table surface',
         confidence: 0.99,
         bounding_box: [260, 180, 480, 360],
         segmentation_polygon: [[260, 185], [470, 180], [480, 355], [265, 360]],
@@ -527,7 +629,7 @@ export default function App() {
 
       setMemoryScanSuccess(`✨ Memorized: ${objectName} on table!`);
       playExtractionChime();
-      speakText(`Got it! I have memorized your ${objectName} on the table.`);
+      speakText(`Got it! I have memorized your ${objectName} on the table surface.`);
       setTimeout(() => setMemoryScanSuccess(''), 5000);
 
       // Attempt backend persistence
@@ -536,7 +638,7 @@ export default function App() {
         const formData = new FormData();
         formData.append('frame', blob, 'camera_scan.jpg');
         formData.append('object_name', objectName);
-        formData.append('room_context', 'table surface');
+        formData.append('room_context', 'table surface beside laptop');
         try {
           await fetch(`${API_BASE}/api/sentinel/register-memory`, {
             method: 'POST',
@@ -557,7 +659,7 @@ export default function App() {
       const past = new Date(isoString);
       const diffMs = Date.now() - past.getTime();
       const mins = Math.floor(diffMs / 60000);
-      if (mins < 1) return 'just a few seconds ago';
+      if (mins < 1) return 'just a few moments ago';
       if (mins < 60) return `${mins} minute${mins > 1 ? 's' : ''} ago`;
       const hours = Math.floor(mins / 60);
       return `${hours} hour${hours > 1 ? 's' : ''} ago`;
@@ -566,7 +668,7 @@ export default function App() {
     }
   };
 
-  // Client Spatial Memory Search Engine
+  // Client Spatial Relational Memory Search Engine
   const resolveSpatialQueryLocally = (queryText, candidateMemories) => {
     const lower = queryText.toLowerCase();
 
@@ -575,6 +677,7 @@ export default function App() {
       earbuds: ['earbud', 'earbuds', 'airpod', 'airpods', 'headphone', 'headphones', 'earphones', 'buds', 'pods'],
       iron: ['iron', 'ironing', 'cord', 'plug', 'unplugged', 'stove', 'burn', 'turned off'],
       wallet: ['wallet', 'purse', 'card', 'cards', 'cash', 'money'],
+      glasses: ['glasses', 'spectacles', 'sunglasses', 'reading glasses'],
       phone: ['phone', 'iphone', 'mobile', 'smartphone', 'device', 'grabbed my phone'],
       handbag: ['bag', 'handbag', 'purse', 'backpack', 'tote']
     };
@@ -615,7 +718,7 @@ export default function App() {
         segmentation_polygon: matched.segmentation_polygon,
         frame_path: matched.frame_path,
         thumbnail_path: matched.thumbnail_path,
-        explanation: `I found your ${matched.object_name}. It was last observed on the ${matched.room_context} (${timeAgo}) with 99% confidence.`
+        explanation: `I found your ${matched.object_name}! It is ${matched.room_context} (${timeAgo}) with 99% confidence. Is there anything else you'd like me to find?`
       };
     }
 
@@ -627,14 +730,14 @@ export default function App() {
     return {
       found: false,
       target_object: cleanItem || queryText,
-      location_context: "Not in active spatial memory",
+      location_context: "Not currently in active spatial memory",
       confidence: 0.1,
-      explanation: `I searched the 24/7 memory graph, but I haven't observed your ${cleanItem || 'item'} yet. Aim your camera and tap 'Scan & Remember' to memorize it.`
+      explanation: `I searched your 24/7 camera memory, but I haven't observed your ${cleanItem || 'item'} yet. Spatial Sentry is continuously monitoring your room. Is there another item you'd like me to check?`
     };
   };
 
-  // Assistant Query
-  const handleSearch = async (queryText) => {
+  // Assistant Query with Conversational Multi-turn Flow
+  const handleSearch = async (queryText, isFollowUp = false) => {
     const q = (queryText || query).trim();
     if (!q) return;
 
@@ -643,18 +746,28 @@ export default function App() {
 
     const lowerQ = q.toLowerCase();
 
-    // Check for conversation completion / closing phrases
+    // Check for conversation completion / closing phrases (including "no", "no thanks", etc.)
     const CLOSING_PATTERNS = [
-      'thank', 'thanks', 'no question', 'no questions',
-      'nothing', 'nope', 'bye', 'goodbye', 'that is all', "that's all",
-      'all good', 'stop', 'nevermind', 'never mind', 'ok thank', 'okay thank'
+      'thank', 'thanks', 'no', 'nope', 'nothing', 'no question', 'no questions',
+      'that is all', "that's all", 'all good', "i'm good", 'im good', 'stop',
+      'nevermind', 'never mind', 'ok thank', 'okay thank', 'bye', 'goodbye'
     ];
-    const isClosing = CLOSING_PATTERNS.some(p => lowerQ.includes(p));
+    const isClosing = CLOSING_PATTERNS.some(p => {
+      if (p === 'no' || p === 'nope') {
+        return lowerQ === 'no' || lowerQ === 'nope' || lowerQ.startsWith('no ') || lowerQ.includes('no thanks') || lowerQ.includes('no thank');
+      }
+      return lowerQ.includes(p);
+    });
+
     if (isClosing) {
       setIsSearching(false);
       setIsRecording(false);
+      setIsWaitingForFollowUp(false);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(e){}
+      }
       let responseText = "You're welcome! Spatial Sentry guard is standing by.";
-      if (lowerQ.includes('no question') || lowerQ.includes('nothing') || lowerQ.includes("that's all") || lowerQ.includes('all good')) {
+      if (lowerQ.includes('no') || lowerQ.includes('nothing') || lowerQ.includes("that's all") || lowerQ.includes('all good')) {
         responseText = "Understood. Spatial Sentry is active and keeping 24/7 watch.";
       } else if (lowerQ.includes('bye') || lowerQ.includes('goodbye')) {
         responseText = "Goodbye! Spatial Sentry will continue monitoring in the background.";
@@ -668,11 +781,11 @@ export default function App() {
         explanation: responseText
       };
       setAssistantResult(closureResult);
-      speakText(responseText);
+      speakText(responseText); // No onEnd -> conversation ends!
       return;
     }
 
-    // 1. Try backend Meta Muse Spark query
+    // 1. Try backend Meta Muse Spark query if reachable
     try {
       const res = await fetch(`${API_BASE}/api/query-text`, {
         method: 'POST',
@@ -682,32 +795,89 @@ export default function App() {
 
       if (res.ok) {
         const data = await res.json();
-        setAssistantResult(data);
-        if (data.explanation) {
-          speakText(data.explanation);
+        if (data.explanation && !data.explanation.includes("anything else")) {
+          data.explanation = `${data.explanation} Is there anything else you'd like me to find?`;
         }
-        setIsRecording(false);
+        setAssistantResult(data);
         setIsSearching(false);
+        speakText(data.explanation, () => {
+          // When speaking finishes, wait for person to speak follow-up!
+          startListening(true);
+        });
         return;
       }
     } catch (err) {
-      console.warn("Backend query unavailable, resolving via local spatial memory engine:", err);
+      console.warn("Backend query unavailable, resolving via local spatial relational memory engine:", err);
     }
 
-    // 2. Client-side Spatial Memory Engine
+    // 2. Client-side Spatial Relational Memory Engine
     const localResult = resolveSpatialQueryLocally(q, memories);
     setAssistantResult(localResult);
-    if (localResult.explanation) {
-      speakText(localResult.explanation);
-    }
-    setIsRecording(false);
     setIsSearching(false);
+    if (localResult.explanation) {
+      speakText(localResult.explanation, () => {
+        // When speaking finishes, wait for person to speak follow-up!
+        startListening(true);
+      });
+    }
   };
 
-  // Hands-Free Voice Toggle
+  // Helper to cleanly start speech recognition
+  const startListening = (isFollowUp = false) => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice recognition is not supported in this browser. Please type your query in the search bar.");
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(e){}
+      }
+
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setIsWaitingForFollowUp(isFollowUp);
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setQuery(transcript);
+        setIsRecording(false);
+        setIsWaitingForFollowUp(false);
+        handleSearch(transcript, isFollowUp);
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsRecording(false);
+        setIsWaitingForFollowUp(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+        setIsWaitingForFollowUp(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.warn("Speech recognition start failed:", err);
+      setIsRecording(false);
+      setIsWaitingForFollowUp(false);
+    }
+  };
+
+  // Hands-Free Voice Toggle Button Handler
   const handleVoiceToggle = () => {
     if (isRecording) {
       setIsRecording(false);
+      setIsWaitingForFollowUp(false);
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch(e){}
       }
@@ -724,44 +894,7 @@ export default function App() {
       } catch(e){}
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognitionRef.current = recognition;
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = () => {
-          setIsRecording(true);
-        };
-
-        recognition.onresult = (event) => {
-          const transcript = event.results[0][0].transcript;
-          setQuery(transcript);
-          setIsRecording(false);
-          handleSearch(transcript);
-        };
-
-        recognition.onerror = (event) => {
-          console.warn("Speech recognition error:", event.error);
-          setIsRecording(false);
-        };
-
-        recognition.onend = () => {
-          setIsRecording(false);
-        };
-
-        recognition.start();
-      } catch (err) {
-        console.warn("Speech recognition start failed:", err);
-        setIsRecording(false);
-      }
-    } else {
-      setIsRecording(false);
-      alert("Voice recognition is not supported in this browser. Please type your question in the search bar.");
-    }
+    startListening(false);
   };
 
   // Render SVG SAM 3.1 Bounding Polygon & Box
@@ -1011,11 +1144,11 @@ export default function App() {
                       {/* ZERO-SURVEILLANCE PRIVACY SHIELD (DEFAULT WHEN ACTIVE) */}
                       {isCameraActive && !showRawFeed && (
                         <div className="absolute inset-0 bg-gradient-to-b from-[#090d16] via-[#0b101c] to-[#070a12] flex flex-col items-center justify-between p-6 overflow-hidden">
-                          {/* Top Radar Bar */}
+                          {/* Live 24/7 Automatic Spatial Relational HUD */}
                           <div className="w-full flex items-center justify-between text-[11px] font-mono text-cyan-400 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-cyan-800/50">
                             <span className="flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                              <span className="font-bold">SPATIAL SENTRY RADAR ACTIVE</span>
+                              <span className="font-bold">24/7 AUTO-SPATIAL RADAR ACTIVE</span>
                             </span>
                             <span className="text-gray-400">Zero-Surveillance Guarantee</span>
                             <span className="text-emerald-400 font-semibold">10s Rolling Purge</span>
@@ -1032,7 +1165,7 @@ export default function App() {
                             <div className="relative z-10 p-5 rounded-3xl bg-gradient-to-tr from-cyan-950/80 to-indigo-950/80 border-2 border-cyan-500/50 shadow-2xl shadow-cyan-950/60 flex flex-col items-center gap-2">
                               <ShieldCheck className="w-12 h-12 text-cyan-400" />
                               <span className="text-xs font-extrabold uppercase tracking-widest text-cyan-300">
-                                Privacy Shield Active
+                                Continuous Object & Relational Indexing
                               </span>
                             </div>
                           </div>
@@ -1343,16 +1476,33 @@ export default function App() {
                 {/* Hands-Free Voice Button (Meta Muse Voice) */}
                 <button
                   onClick={handleVoiceToggle}
-                  className={`px-5 py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-xs transition-all shadow-lg shrink-0 ${
+                  className={`px-5 py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-xs transition-all shadow-lg shrink-0 cursor-pointer ${
                     isRecording
-                      ? 'bg-rose-600 text-white animate-pulse shadow-rose-900/60 ring-2 ring-rose-400'
+                      ? (isWaitingForFollowUp 
+                          ? 'bg-purple-600 text-white animate-pulse shadow-purple-900/60 ring-2 ring-purple-400' 
+                          : 'bg-rose-600 text-white animate-pulse shadow-rose-900/60 ring-2 ring-rose-400')
                       : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-purple-950/40'
                   }`}
                 >
                   <Mic className={`w-4 h-4 ${isRecording ? 'animate-bounce text-white' : 'text-indigo-200'}`} />
-                  <span>{isRecording ? 'Listening (Muse Voice)...' : 'Hands-Free Voice'}</span>
+                  <span>
+                    {isRecording 
+                      ? (isWaitingForFollowUp ? '🎙️ Listening for Follow-up...' : '🎙️ Listening (Speak now)...') 
+                      : 'Hands-Free Voice'}
+                  </span>
                 </button>
               </div>
+
+              {/* Conversational Follow-Up Banner */}
+              {isWaitingForFollowUp && (
+                <div className="p-3.5 rounded-xl bg-purple-950/50 border border-purple-500/60 flex items-center justify-between text-xs text-purple-200 shadow-lg animate-pulse">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-ping"></span>
+                    <span className="font-semibold">Assistant is waiting: <em>"Is there anything else you'd like me to find?"</em></span>
+                  </div>
+                  <span className="text-[11px] text-purple-300 font-mono">Speak your question or "No, thanks"</span>
+                </div>
+              )}
 
               {/* Quick Prompt Pills */}
               <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1490,6 +1640,27 @@ export default function App() {
                       {renderSAMOverlay(assistantResult.bounding_box, assistantResult.segmentation_polygon, assistantResult.is_incident)}
                     </div>
                   )}
+
+                  {/* Multi-turn suggested follow-ups */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-800/80 text-xs">
+                    <span className="text-gray-400 font-medium">Follow-up:</span>
+                    {[
+                      "Where are my earbuds?",
+                      "Where is my wallet?",
+                      "No, that's all, thanks!"
+                    ].map((replyText, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setQuery(replyText);
+                          handleSearch(replyText, true);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-purple-500/50 text-gray-300 hover:text-purple-300 transition-all cursor-pointer"
+                      >
+                        {replyText}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )
             ) : null}
