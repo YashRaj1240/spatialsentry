@@ -17,11 +17,11 @@ if env_file.exists():
 
 # API Configuration
 META_MODEL_API_KEY = os.getenv("META_MODEL_API_KEY", "").strip()
-META_API_BASE_URL = os.getenv("META_API_BASE_URL", "https://api.dev.meta.ai/v1").rstrip("/")
+META_API_BASE_URL = os.getenv("META_API_BASE_URL", "https://api.meta.ai/v1").rstrip("/")
 
 # Determine active mode
 is_dummy_key = not META_MODEL_API_KEY or META_MODEL_API_KEY.startswith("your_") or "dummy" in META_MODEL_API_KEY.lower()
-MOCK_MODE = os.getenv("MOCK_MODE", "True").lower() in ("true", "1", "yes") or is_dummy_key
+MOCK_MODE = os.getenv("MOCK_MODE", "False").lower() in ("true", "1", "yes") and is_dummy_key
 
 # Directories
 DATA_DIR = BASE_DIR / "data"

@@ -106,10 +106,8 @@ async def query_text(req: TextQueryRequest):
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
-    incidents = get_all_incidents(limit=20)
     memories = get_all_memories(limit=20)
-    
-    result = mock_muse_spark_reasoning(req.query, memories=memories, incidents=incidents)
+    result = await meta_client.reason_spatial_query(req.query, candidate_memories=memories)
     return result
 
 @app.post("/api/sentinel/register-memory")
