@@ -5,7 +5,7 @@ import {
   Shield, ShieldAlert, ShieldCheck, AlertTriangle, Bell, BellOff,
   Video, VideoOff, Camera, Eye, MapPin, Clock, Cpu, HardDrive,
   Sparkles, RefreshCw, Smartphone, Glasses, Lock, Unlock, Flame,
-  CheckCircle2, Search, Mic, ArrowRight, Zap, Volume2, VolumeX, MousePointer
+  CheckCircle2, Search, Mic, ArrowRight, Zap, Volume2, VolumeX, MousePointer, Sun, Moon
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
@@ -161,6 +161,7 @@ export default function App() {
   const [extractionToast, setExtractionToast] = useState('');
   const [isPocketDark, setIsPocketDark] = useState(false);
   const wasDarkRef = useRef(false);
+  const [selectedChime, setSelectedChime] = useState('water'); // 'water', 'chime', 'marimba', 'sparkle'
 
   // Assistant states (TARA Persona & Multi-turn Conversational Sentinel)
   const [query, setQuery] = useState('');
@@ -407,9 +408,14 @@ export default function App() {
     setActiveAlarm(null);
   };
 
-  // Pleasant Signature Extraction Chime (Non-intrusive notification)
-  const playExtractionChime = () => {
+  // Personal Familiar Sound Profile Generator (Dark ➔ Light Silent Thief Trap)
+  // Plays a pleasant sound chosen by the user so they love hearing it and get accustomed to it.
+  // Every time the phone leaves darkness (pocket/bag) into light, this sound plays.
+  // If a pickpocket silently removes the phone, the familiar sound plays—the thief thinks they made zero noise,
+  // but the owner instantly notices because their hands are empty, and catches the thief!
+  const playSoundProfile = (soundType) => {
     try {
+      const type = soundType || selectedChime || 'water';
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
       }
@@ -417,75 +423,92 @@ export default function App() {
       if (ctx.state === 'suspended') {
         ctx.resume();
       }
-
-      // Friendly Apple-Pay style two-tone chime: D5 (587Hz) -> A5 (880Hz) with soft bell decay
       const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, now);
-      osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.12);
-
-      gain.gain.setValueAtTime(0.01, now);
-      gain.gain.linearRampToValueAtTime(0.25, now + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.7);
-    } catch (err) {
-      console.warn("Chime audio error:", err);
-    }
-  };
-
-  // Familiar Smartphone Notification Pop-Up Chime (The Silent Thief Trap)
-  // Instead of a loud siren that makes a thief sprint away, this plays a familiar smartphone chime (C5 -> E5 -> G5).
-  // The owner naturally reaches for their phone thinking they received a message,
-  // while the silent thief thinks they made zero noise and gets caught red-handed!
-  const playFamiliarNotificationChime = () => {
-    try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const now = ctx.currentTime;
-      const tones = [
-        { freq: 523.25, start: 0, dur: 0.18 },    // C5
-        { freq: 659.25, start: 0.08, dur: 0.22 }, // E5
-        { freq: 783.99, start: 0.16, dur: 0.55 }  // G5 bell chime
-      ];
-
-      tones.forEach(t => {
+      if (type === 'water') {
+        // 💧 Crisp natural water droplet (sweeps 1100Hz -> 750Hz with swift bell drop)
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(t.freq, now + t.start);
+        osc.frequency.setValueAtTime(1100, now);
+        osc.frequency.exponentialRampToValueAtTime(750, now + 0.14);
 
-        gain.gain.setValueAtTime(0.001, now + t.start);
-        gain.gain.linearRampToValueAtTime(0.28, now + t.start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + t.start + t.dur);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.35, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(now + t.start);
-        osc.stop(now + t.start + t.dur);
-      });
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } else if (type === 'marimba') {
+        // 🎵 Warm wooden marimba resonant tap (440Hz warm harmonic)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.30, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      } else if (type === 'sparkle') {
+        // 🎶 3-tone familiar smartphone sparkle arpeggio (C5 -> E5 -> G5)
+        const tones = [
+          { freq: 523.25, start: 0, dur: 0.16 },
+          { freq: 659.25, start: 0.08, dur: 0.18 },
+          { freq: 783.99, start: 0.16, dur: 0.50 }
+        ];
+        tones.forEach(t => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(t.freq, now + t.start);
+          gain.gain.setValueAtTime(0.001, now + t.start);
+          gain.gain.linearRampToValueAtTime(0.25, now + t.start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + t.start + t.dur);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + t.start);
+          osc.stop(now + t.start + t.dur);
+        });
+      } else {
+        // 🔔 Classic Velvet Chime (Apple-Pay style 2-tone: 587Hz -> 880Hz)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, now);
+        osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.12);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.28, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.7);
+      }
     } catch (err) {
-      console.warn("Chime audio error:", err);
+      console.warn("Sound profile playback error:", err);
     }
   };
 
+  const playExtractionChime = () => playSoundProfile(selectedChime);
+  const playFamiliarNotificationChime = () => playSoundProfile(selectedChime);
+
   const triggerPocketExtraction = () => {
-    playExtractionChime();
-    setExtractionToast('📱 Phone extracted from pocket/bag · Spatial Guard Armed');
-    setTimeout(() => setExtractionToast(''), 3500);
+    playSoundProfile(selectedChime);
+    const soundNames = {
+      water: '💧 Water Drop',
+      chime: '🔔 Velvet Chime',
+      marimba: '🎵 Zen Marimba',
+      sparkle: '🎶 Pop Sparkle'
+    };
+    setExtractionToast(`☀️ Extracted from dark to light! ${soundNames[selectedChime] || 'Your familiar sound'} played. If your hands are empty, check your phone immediately!`);
+    setTimeout(() => setExtractionToast(''), 4500);
   };
 
   // Trigger Simulated / Real Snatch Intercept (Silent Thief Trap)
@@ -1863,15 +1886,62 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Silent Theft Trap Test Button */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => handleTriggerSnatch("Smartphone (Silent Pickpocket Attempt)")}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs shadow-lg shadow-orange-950/50 transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <Bell className="w-4 h-4 animate-bounce" />
-                      🔔 Test Silent Theft Trap (Familiar Pop-Up Chime)
-                    </button>
+                  {/* Personal Familiar Sound Selector & Silent Theft Trap Controls */}
+                  <div className="flex flex-col gap-3 pt-2 border-t border-gray-800/80">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                          <Volume2 className="w-4 h-4 text-amber-400" />
+                          Personal Sound Profile (Dark ➔ Light Trap)
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-mono">Custom Choice</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-snug">
+                        Pick a pleasant sound you like. You become conditioned to hear it every time your phone is extracted from your dark pocket/bag. If a silent thief extracts it, the sound plays—you instantly notice while the thief is trapped in the act!
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { id: 'water', label: '💧 Water Drop', desc: 'Crisp & natural' },
+                        { id: 'chime', label: '🔔 Velvet Chime', desc: 'Pleasant 2-tone' },
+                        { id: 'marimba', label: '🎵 Zen Marimba', desc: 'Warm wooden tap' },
+                        { id: 'sparkle', label: '🎶 Pop Sparkle', desc: 'Familiar 3-tone' }
+                      ].map(s => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            setSelectedChime(s.id);
+                            playSoundProfile(s.id);
+                          }}
+                          className={`p-2.5 rounded-xl text-left transition-all border cursor-pointer ${
+                            selectedChime === s.id
+                              ? 'bg-amber-500/20 border-amber-500/70 text-amber-300 shadow-md ring-1 ring-amber-500/40'
+                              : 'bg-gray-900/80 border-gray-800 text-gray-300 hover:bg-gray-800 hover:border-gray-700'
+                          }`}
+                        >
+                          <span className="text-xs font-bold block">{s.label}</span>
+                          <span className="text-[10px] text-gray-400 block mt-0.5">{s.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        onClick={triggerPocketExtraction}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-950/50 transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <Sun className="w-4 h-4 text-amber-300 animate-spin" />
+                        ☀️ Test Dark ➔ Light Extraction (Your Familiar Sound)
+                      </button>
+                      <button
+                        onClick={() => handleTriggerSnatch("Smartphone (Silent Pickpocket Attempt)")}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs shadow-lg shadow-orange-950/50 transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <Bell className="w-4 h-4 animate-bounce" />
+                        🔔 Test Silent Theft Trap
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
