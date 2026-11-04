@@ -6,17 +6,12 @@
 [![Live App on Vercel](https://img.shields.io/badge/🚀%20Live%20Production%20App-spatialsentry0--218f.vercel.app-00f2fe?style=for-the-badge&logo=vercel)](https://spatialsentry0-218f.vercel.app)
 [![Meta Model API](https://img.shields.io/badge/Meta%20AI-SAM%203.1%20%7C%20Muse%20Spark%20%7C%20Muse%20Voice-0081FB?style=for-the-badge&logo=meta)](https://dev.meta.ai/)
 
----
-
-### 🌐 **Live Application URL (Instant Access for Judges):**
+### 🌐 Live Production Application (Instant Access for Judges):
 👉 **[https://spatialsentry0-218f.vercel.app](https://spatialsentry0-218f.vercel.app)**
 
----
-
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind-61DAFB?logo=react)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/Frontend-React-61DAFB?logo=react)](https://react.dev/)
 [![Privacy](https://img.shields.io/badge/Privacy-10s%20RAM%20Auto--Purge-emerald)](https://github.com/)
-[![Platforms](https://img.shields.io/badge/Hardware-Smartphones%20%7C%20Meta%20Ray--Ban%20%7C%20PWA-purple)](https://github.com/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ---
@@ -136,18 +131,3 @@ npm install
 npm run dev -- --port 3000
 ```
 Open **[http://localhost:3000](http://localhost:3000)** in your browser.
-
----
-
-## 🎬 3-Minute Hackathon Demo Script (For Judges)
-
-* **0:00 - 0:30 (The Hook & Problem):**
-  *"Every day, thousands of smartphones and bags are snatched on streets and transit. People can't use continuous body cameras because of privacy. Meet SpatialSentry: the 24/7 AI smartphone bodyguard that watches your back without ever storing your private life."*
-* **0:30 - 1:15 (The Rolling Buffer & Pocket Extraction Chime):**
-  *Show the Live Spatial Radar HUD. Explain the 10-second rolling RAM buffer showing 0MB persistent disk storage, and test the signature Pocket Extraction Chime & Popup.*
-* **1:15 - 2:00 (The Action: Simulated Snatch Intercept):**
-  *Arm the perimeter. Click 'Test Snatch Intercept'. The siren blares! The screen flashes red! Meta SAM 3.1 locks the neon suspect polygon over the snatching hand.*
-* **2:00 - 2:30 (Evidence Vault & Forensic Ledger):**
-  *Click the 'Incident Evidence Vault' tab. Show the frozen 10-second proof with displacement velocity (4.8 m/s) and AI incident summary.*
-* **2:30 - 3:00 (Ambient Memory & Closing):**
-  *Ask: 'Did someone grab my phone?' Show Muse Spark explaining the safety log. Close with the massive global impact across 5+ billion smartphone users and Meta smart glasses.*
