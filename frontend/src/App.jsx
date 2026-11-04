@@ -441,14 +441,55 @@ export default function App() {
     }
   };
 
+  // Familiar Smartphone Notification Pop-Up Chime (The Silent Thief Trap)
+  // Instead of a loud siren that makes a thief sprint away, this plays a familiar smartphone chime (C5 -> E5 -> G5).
+  // The owner naturally reaches for their phone thinking they received a message,
+  // while the silent thief thinks they made zero noise and gets caught red-handed!
+  const playFamiliarNotificationChime = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+      const tones = [
+        { freq: 523.25, start: 0, dur: 0.18 },    // C5
+        { freq: 659.25, start: 0.08, dur: 0.22 }, // E5
+        { freq: 783.99, start: 0.16, dur: 0.55 }  // G5 bell chime
+      ];
+
+      tones.forEach(t => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(t.freq, now + t.start);
+
+        gain.gain.setValueAtTime(0.001, now + t.start);
+        gain.gain.linearRampToValueAtTime(0.28, now + t.start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + t.start + t.dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + t.start);
+        osc.stop(now + t.start + t.dur);
+      });
+    } catch (err) {
+      console.warn("Chime audio error:", err);
+    }
+  };
+
   const triggerPocketExtraction = () => {
     playExtractionChime();
     setExtractionToast('📱 Phone extracted from pocket/bag · Spatial Guard Armed');
     setTimeout(() => setExtractionToast(''), 3500);
   };
 
-  // Trigger Simulated / Real Snatch Intercept
-  const handleTriggerSnatch = async (targetItem = "Designer Leather Handbag") => {
+  // Trigger Simulated / Real Snatch Intercept (Silent Thief Trap)
+  const handleTriggerSnatch = async (targetItem = "Smartphone (Silent Theft Attempt)") => {
     try {
       const res = await fetch(`${API_BASE}/api/sentinel/trigger-snatch`, {
         method: 'POST',
@@ -462,7 +503,7 @@ export default function App() {
       if (res.ok) {
         const alertData = await res.json();
         setActiveAlarm(alertData);
-        playSiren();
+        playFamiliarNotificationChime();
         fetchIncidents();
         fetchBufferStatus();
         return;
@@ -474,21 +515,21 @@ export default function App() {
     // Client-side fallback simulation for standalone / Vercel
     const fallbackAlert = {
       incident_id: Date.now(),
-      incident_type: "theft_attempt",
+      incident_type: "silent_theft_intercept",
       severity: "CRITICAL",
       target_item: targetItem,
       location_context: "Outdoor Cafe Table #4",
-      suspect_description: "Suspect in grey jacket & white sneakers, rapid right-hand grab",
-      displacement_velocity: 4.8,
+      suspect_description: "Suspect attempted silent extraction without noise; trapped by familiar chime",
+      displacement_velocity: 3.8,
       bounding_box: [320, 180, 490, 390],
       segmentation_polygon: [[320, 185], [480, 180], [490, 385], [325, 390]],
       frame_path: "sample_scenes/cafe_theft_intercept.jpg",
       evidence_thumbnail: "thumbnails/wallet.jpg",
-      ai_forensic_report: "PERIMETER BREACH INTERCEPTED: High-velocity snatch vector detected on protected valuable. Audible deterrent siren triggered at 85dB. Suspect aborted grab and fled eastward on foot.",
+      ai_forensic_report: "SILENT THEFT TRAP INTERCEPTED: Subtle unauthorized grab detected on protected smartphone. Familiar notification pop-up chime sounded, prompting user to immediately check their phone and catch the suspect in the act.",
       timestamp: new Date().toISOString()
     };
     setActiveAlarm(fallbackAlert);
-    playSiren();
+    playFamiliarNotificationChime();
     setIncidents(prev => [fallbackAlert, ...prev]);
   };
 
@@ -1487,27 +1528,38 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. EMERGENCY ALARM BANNER (When Active) */}
+      {/* 2. SILENT THEFT TRAP / FAMILIAR NOTIFICATION BANNER (When Active) */}
       {activeAlarm && (
-        <div className="bg-rose-950/90 border-b border-rose-500/80 px-6 py-3 flex items-center justify-between text-rose-200 animate-pulse">
+        <div className="bg-amber-950/95 border-b border-amber-500/80 px-6 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-200 animate-pulse shadow-xl">
           <div className="flex items-center gap-3">
-            <ShieldAlert className="w-6 h-6 text-rose-400 animate-ping" />
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+              <Bell className="w-6 h-6 text-amber-400 animate-bounce" />
+            </div>
             <div>
-              <span className="font-bold text-sm tracking-wider uppercase text-rose-300">
-                🚨 SECURITY INTERCEPT TRIGGERED!
+              <span className="font-bold text-sm tracking-wider uppercase text-amber-300 flex items-center gap-2">
+                <span>🔔 SILENT THEFT TRAP ACTIVATED: FAMILIAR POP-UP CHIME SOUNDED!</span>
               </span>
-              <p className="text-xs text-rose-200/90">
-                High-velocity snatch attempt detected on <strong>{activeAlarm.target_item}</strong>. Deterrent siren active; forensic evidence locked.
+              <p className="text-xs text-amber-100/90 mt-0.5">
+                Silent snatch attempt detected on <strong>{activeAlarm.target_item}</strong>. Familiar notification chime played—you naturally check your phone, catching the silent thief trapped in the act!
               </p>
             </div>
           </div>
-          <button
-            onClick={stopSiren}
-            className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg"
-          >
-            <VolumeX className="w-4 h-4" />
-            Silence Alarm
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => playFamiliarNotificationChime()}
+              className="px-3.5 py-1.5 rounded-lg bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 font-bold text-xs flex items-center gap-1.5 border border-amber-400/50 shadow transition-all cursor-pointer"
+            >
+              <Volume2 className="w-4 h-4" />
+              Replay Pop-Up Chime
+            </button>
+            <button
+              onClick={stopSiren}
+              className="px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-xs flex items-center gap-1.5 shadow transition-all cursor-pointer"
+            >
+              <VolumeX className="w-4 h-4" />
+              Dismiss Trap
+            </button>
+          </div>
         </div>
       )}
 
@@ -1811,14 +1863,14 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Emergency Snatch Test Button */}
+                  {/* Silent Theft Trap Test Button */}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
-                      onClick={() => handleTriggerSnatch("Smartphone (Handbag Snatch Attempt)")}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-950/50 transition-all flex items-center gap-2"
+                      onClick={() => handleTriggerSnatch("Smartphone (Silent Pickpocket Attempt)")}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs shadow-lg shadow-orange-950/50 transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <Zap className="w-4 h-4 animate-bounce" />
-                      🚨 Test Snatch Intercept
+                      <Bell className="w-4 h-4 animate-bounce" />
+                      🔔 Test Silent Theft Trap (Familiar Pop-Up Chime)
                     </button>
                   </div>
                 </div>
