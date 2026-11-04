@@ -1,9 +1,18 @@
 # 📱🛡️ SpatialSentry — 24/7 Ephemeral AI Smartphone Bodyguard & Spatial Memory Sentinel
 
-> **Continuous Smartphone Protection, Snatch Deterrence & Pocket Extraction Guardian Powered by Meta AI**  
-> *24/7 Ephemeral AI Smartphone Bodyguard & Spatial Memory Sentinel*
+> **Continuous Smartphone Protection, Snatch Deterrence & Spatial Memory Powered by Meta AI**  
+> *Meta Global AI Developer Hackathon Submission — Track: Indie Developer ($150,000 1st Prize)*
 
-[![Meta Model API](https://img.shields.io/badge/Meta%20AI-SAM%203.1%20%7C%20Muse%20%7C%20Llama%203-0081FB?logo=meta)](https://dev.meta.ai/)
+[![Live App on Vercel](https://img.shields.io/badge/🚀%20Live%20Production%20App-spatialsentry0--218f.vercel.app-00f2fe?style=for-the-badge&logo=vercel)](https://spatialsentry0-218f.vercel.app)
+[![Meta Model API](https://img.shields.io/badge/Meta%20AI-SAM%203.1%20%7C%20Muse%20Spark%20%7C%20Muse%20Voice-0081FB?style=for-the-badge&logo=meta)](https://dev.meta.ai/)
+
+---
+
+### 🌐 **Live Application URL (Instant Access for Judges):**
+👉 **[https://spatialsentry0-218f.vercel.app](https://spatialsentry0-218f.vercel.app)**
+
+---
+
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind-61DAFB?logo=react)](https://react.dev/)
 [![Privacy](https://img.shields.io/badge/Privacy-10s%20RAM%20Auto--Purge-emerald)](https://github.com/)
@@ -52,18 +61,22 @@ Yet, people refuse to run continuous recording apps for one simple reason: **PRI
 - **Snatch Detection Vector:** If an unauthorized hand grabs your phone at high displacement velocity (>3.0 m/s), an **instant deterrent siren** sounds, startling the thief into dropping the device.
 - **Suspect Tagging:** **Meta SAM 3.1** instantly segments the suspect's hand, jacket, and direction of flight, locking an unalterable forensic evidence card.
 
-### 2. ✨ Pocket & Purse Extraction Guardian (Darkness-to-Light Chime)
-- **Subconscious Conditioning:** When the phone leaves darkness (pocket or purse), it plays a pleasant signature extraction chime and shows a non-intrusive confirmation popup: *"Phone Removed from Pocket · Tap if Not You"*.
-- **Pickpocket Intercept:** If a pickpocket silently lifts your phone from your bag in a crowded train, you hear your phone's signature chime behind you, turn around, and stop the theft!
+### 2. ☀️ The Dark-to-Light Silent Pickpocket Trap (Custom Sound Conditioning)
+- **Positive Habit Conditioning:** Users pick a pleasant sound they love (💧 Water Drop, 🔔 Velvet Chime, 🎵 Zen Marimba, or 🎶 Pop Sparkle). Every time the phone leaves darkness (pocket or bag) into the light, this sound plays naturally. Because you love the sound, you never get irritated—you get accustomed to hearing it every time your phone comes out.
+- **The Silent Thief Trap:** A pickpocket secretly slides your phone out of your bag without making any noise. Because they don't know about the dark-to-light trigger, your familiar sound plays as usual. The thief thinks it's harmless, but you instantly realize: *"Wait! My phone sound just played, but my hands are in my lap!"* You turn around and catch the thief red-handed in the act!
 
-### 3. 🔒 Zero-Surveillance Privacy (10-Second RAM Buffer)
-- Video exists **only in transient RAM memory** for 10 seconds.
-- If no threat or safety event occurs, the video frames are **automatically overwritten and destroyed**.
-- Your private life, conversations, and home are **never saved to disk or uploaded to the cloud**.
-- When you are distracted, SpatialSentry quietly verifies important safety details:
-  - *"Did I unplug the iron before leaving?"* → Verified at 8:14 AM.
-  - *"Did someone grab my phone while I was away?"* → Reports unauthorized contact attempt.
-  - *"Where are my apartment keys?"* → Verified on the kitchen counter.
+### 3. 🎙️ TARA — 24/7 Voice AI Spatial Memory Sentinel
+- **Meta Muse Spark 1.3 & Muse Voice:** Conversational voice AI operating under a strict 6-state goal completion machine:
+  `FIND OBJECT -> SHARE LOCATION -> OFFER FURTHER HELP -> PROCESS USER RESPONSE -> CLOSE OR CONTINUE`
+- **Natural Multi-Turn Dialog:**
+  - *"Where is my mouse?"* → *"Your computer mouse was last spotted on the work desk surface. Is there anything else you'd like me to help you find?"*
+  - Follow-up (Case A): *"Yes, where is my wallet?"* → Answers with location without restarting greeting.
+  - Closing (Case B & C): *"No, that's all."* or *"I'm good."* → *"Alright! Glad I could help. Just call me whenever you need to find something. Have a great day!"* (Voice session terminates cleanly).
+
+### 4. 🔒 Zero-Surveillance Privacy (10-Second RAM Buffer)
+- Raw video frames exist **only in transient RAM memory** for 10 seconds.
+- Every 10 seconds, raw image buffers are **automatically wiped and destroyed** from memory.
+- Only structured text coordinates and knowledge graph representations are permanently preserved—your private room photos are **never stored on disk or uploaded to the cloud**.
 
 ---
 
