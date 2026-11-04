@@ -151,13 +151,18 @@ class MetaModelClient:
                     except Exception:
                         pass
                     
-                    # If returned prose, wrap in spatial result structure
+                    # If returned prose or partially formed JSON, extract clean explanation
+                    expl_match = re.search(r'"explanation"\s*:\s*"([^"]+)"', content)
+                    if expl_match:
+                        clean_expl = expl_match.group(1).strip()
+                    else:
+                        clean_expl = content.strip().replace('{', '').replace('}', '').replace('"', '').strip()
+
+                    if "anything else" not in clean_expl.lower():
+                        clean_expl = f"{clean_expl.rstrip('.')} Is there anything else you'd like me to help you find?"
+
                     fallback = mock_engine.mock_muse_spark_reasoning(query, candidate_memories)
-                    if content:
-                        clean_expl = content.strip()
-                        if "anything else" not in clean_expl.lower():
-                            clean_expl = f"{clean_expl.rstrip('.')} Is there anything else you'd like me to help you find?"
-                        fallback["explanation"] = clean_expl
+                    fallback["explanation"] = clean_expl
                     return fallback
                 else:
                     logger.warning(f"Muse Spark API returned {response.status_code}: {response.text}")
