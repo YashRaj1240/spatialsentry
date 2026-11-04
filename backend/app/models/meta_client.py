@@ -1,6 +1,7 @@
 import json
 import logging
 import base64
+import re
 from typing import Dict, Any, List, Optional
 import httpx
 from app.config import META_MODEL_API_KEY, META_API_BASE_URL, MOCK_MODE
@@ -88,15 +89,29 @@ class MetaModelClient:
             return mock_engine.mock_segment_anything(image_bytes, target_label=prompt)
 
     async def reason_spatial_query(self, query: str, candidate_memories: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calls Meta Muse Spark (muse-spark-1.3) via Chat Completions endpoint"""
+        """Calls Meta Muse Spark (muse-spark-1.3) via Chat Completions endpoint with TARA persona"""
+        lower_q = query.lower().strip()
+        is_closing = any(p in lower_q for p in mock_engine.TARA_CLOSING_PHRASES) or lower_q in ["no", "nope", "thanks", "thank you"]
+        has_new_object = any(re.search(rf"\b{re.escape(w)}\b", lower_q) for w in ["where", "find", "check", "see", "what about", "glasses", "wallet", "keys", "mouse", "charger", "phone"])
+
+        if is_closing and not has_new_object:
+            return {
+                "found": True,
+                "is_closure": True,
+                "target_object": "TARA Sentinel",
+                "location_context": "Goal Completed",
+                "confidence": 1.0,
+                "explanation": "Alright! Glad I could help. Just call me whenever you need to find something. Have a great day!"
+            }
+
         if MOCK_MODE or not self.api_key or self.api_key.startswith("your_"):
             return mock_engine.mock_muse_spark_reasoning(query, candidate_memories)
 
         try:
             system_prompt = (
-                "You are SpatialSentry, an ephemeral spatial-temporal memory intelligence and 24/7 AI bodyguard. "
-                "Analyze the user's spoken question and candidate observed memories (with timestamps, locations, and bounding boxes). "
-                "Identify where and when the object was observed, and respond with a concise explanation."
+                "You are TARA, an ephemeral spatial-temporal memory intelligence and 24/7 AI sentinel. "
+                "Conversation design rule: After locating an object, always end your answer with: 'Is there anything else you'd like me to help you find?'. "
+                "If the user has no further requests (e.g. 'No, that's all', 'I'm good', 'Nothing else'), reply: 'Alright! Glad I could help. Just call me whenever you need to find something. Have a great day!'."
             )
             
             user_content = json.dumps({
@@ -112,7 +127,7 @@ class MetaModelClient:
                         "model": "muse-spark-1.3",
                         "messages": [
                             {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": f"Memories: {user_content}\nUser Question: {query}. If found, explain where and when. Return JSON with keys: found (bool), target_object (str), location_context (str), last_seen_timestamp (str), confidence (float), explanation (str)."}
+                            {"role": "user", "content": f"Memories: {user_content}\nUser Question: {query}. If found, explain where and when. Always end your response with: 'Is there anything else you'd like me to help you find?'. Return JSON with keys: found (bool), target_object (str), location_context (str), last_seen_timestamp (str), confidence (float), explanation (str)."}
                         ],
                         "max_tokens": 1500
                     }
@@ -130,6 +145,8 @@ class MetaModelClient:
                             clean_content = clean_content.split("```")[1].split("```")[0].strip()
                         parsed = json.loads(clean_content)
                         if isinstance(parsed, dict) and "found" in parsed:
+                            if parsed.get("explanation") and "anything else" not in parsed["explanation"].lower():
+                                parsed["explanation"] = f"{parsed['explanation'].rstrip('.')} Is there anything else you'd like me to help you find?"
                             return parsed
                     except Exception:
                         pass
@@ -137,7 +154,10 @@ class MetaModelClient:
                     # If returned prose, wrap in spatial result structure
                     fallback = mock_engine.mock_muse_spark_reasoning(query, candidate_memories)
                     if content:
-                        fallback["explanation"] = content
+                        clean_expl = content.strip()
+                        if "anything else" not in clean_expl.lower():
+                            clean_expl = f"{clean_expl.rstrip('.')} Is there anything else you'd like me to help you find?"
+                        fallback["explanation"] = clean_expl
                     return fallback
                 else:
                     logger.warning(f"Muse Spark API returned {response.status_code}: {response.text}")
