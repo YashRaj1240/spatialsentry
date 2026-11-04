@@ -92,12 +92,37 @@ def expand_query_keywords(keywords: List[str]) -> set:
                 expanded.update(synonyms)
     return expanded
 
+TARA_CLOSING_PHRASES = [
+    "no, that's all", "no that's all", "no thats all", "that's all", "thats all",
+    "that is all", "i'm good", "im good", "nothing else", "that's it", "thats it",
+    "no, thank you", "no thank you", "no thanks", "i'm done", "im done", "all good",
+    "no questions", "no question", "nothing", "nevermind", "never mind", "stop", "bye", "goodbye"
+]
+
 def mock_muse_spark_reasoning(
     query: str,
     memories: List[Dict[str, Any]],
     incidents: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
-    """Simulates Muse Spark temporal, safety & spatial reasoning over the episodic sentinel graph"""
+    """TARA Persona Spatial Reasoning & Goal Completion Engine"""
+    lower_q = query.lower().strip()
+
+    # Check if this is an explicit or indirect closing response (Case B & C)
+    is_closing = any(p in lower_q for p in TARA_CLOSING_PHRASES) or lower_q in ["no", "nope", "thanks", "thank you"]
+    
+    # Check if user is asking for another object in the same turn (Case D)
+    has_new_object_request = any(re.search(rf"\b{re.escape(w)}\b", lower_q) for w in ["where", "find", "check", "see", "what about", "glasses", "wallet", "keys", "mouse", "charger", "phone"])
+
+    if is_closing and not has_new_object_request:
+        return {
+            "found": True,
+            "is_closure": True,
+            "target_object": "TARA Sentinel",
+            "location_context": "Goal Completed",
+            "confidence": 1.0,
+            "explanation": "Alright! Glad I could help. Just call me whenever you need to find something. Have a great day!"
+        }
+
     target_clean = extract_target_object(query)
     words = [re.sub(r'[^\w]', '', w.lower()) for w in query.split()]
     stopwords = {
@@ -129,7 +154,7 @@ def mock_muse_spark_reasoning(
                     "segmentation_polygon": inc["segmentation_polygon"],
                     "frame_path": inc["frame_path"],
                     "thumbnail_path": inc["evidence_thumbnail"],
-                    "explanation": f"Security alert: {inc['ai_forensic_report']}"
+                    "explanation": f"Security alert: {inc['ai_forensic_report']} Is there anything else you'd like me to help you find?"
                 }
 
     # Otherwise check ambient memories
@@ -158,11 +183,11 @@ def mock_muse_spark_reasoning(
             "segmentation_polygon": matched["segmentation_polygon"],
             "frame_path": matched["frame_path"],
             "thumbnail_path": matched["thumbnail_path"],
-            "explanation": f"I verified your {matched['object_name']} in the {matched['room_context']} at {matched['timestamp'][11:16]} with {int(matched['confidence']*100)}% confidence."
+            "explanation": f"Your {matched['object_name']} was last spotted on the {matched['room_context']}. Is there anything else you'd like me to help you find?"
         }
 
     return {
         "found": False,
         "target_object": target_clean,
-        "explanation": f"I scanned your 24/7 camera memory, but did not find any recorded observation of '{target_clean}'. Spatial Sentry is continuously monitoring your room."
+        "explanation": f"I checked your camera memory, but haven't spotted your {target_clean} yet. Is there anything else you'd like me to help you find?"
     }

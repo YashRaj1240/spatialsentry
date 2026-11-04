@@ -10,6 +10,17 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
+// TARA Conversation State Machine (FIND OBJECT -> SHARE LOCATION -> OFFER FURTHER HELP -> PROCESS USER RESPONSE -> CLOSE OR CONTINUE)
+export const TARA_STATES = {
+  IDLE: 'IDLE',
+  ACTIVE_SEARCH: 'ACTIVE_SEARCH',
+  SEARCH_COMPLETED: 'SEARCH_COMPLETED',
+  ASKING_FOR_MORE: 'ASKING_FOR_MORE',
+  NEW_SEARCH: 'NEW_SEARCH',
+  CONVERSATION_CLOSING: 'CONVERSATION_CLOSING',
+  CONVERSATION_ENDED: 'CONVERSATION_ENDED'
+};
+
 const DEFAULT_INCIDENTS = [
   {
     id: 1,
@@ -151,13 +162,21 @@ export default function App() {
   const [isPocketDark, setIsPocketDark] = useState(false);
   const wasDarkRef = useRef(false);
 
-  // Assistant states
+  // Assistant states (TARA Persona & Multi-turn Conversational Sentinel)
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isWaitingForFollowUp, setIsWaitingForFollowUp] = useState(false);
   const [assistantResult, setAssistantResult] = useState(null);
   const [autoPerceivedToast, setAutoPerceivedToast] = useState('');
+  const [taraState, setTaraState] = useState(TARA_STATES.IDLE);
+  const taraStateRef = useRef(TARA_STATES.IDLE);
+
+  const updateTaraState = (newState) => {
+    taraStateRef.current = newState;
+    setTaraState(newState);
+  };
+
   const recognitionRef = useRef(null);
 
   // Real-time Ephemeral RAM Image Memory Purge Telemetry
@@ -1034,6 +1053,42 @@ export default function App() {
     };
   };
 
+  // Robust check for explicit or indirect negative responses (Case B & Case C)
+  // e.g. "No, that's all", "I'm good", "Nothing else", "That's it", "No, thank you", "I'm done", "All good"
+  const isNegativeClosingResponse = (rawText) => {
+    if (!rawText) return false;
+    const lower = rawText.toLowerCase().trim().replace(/[.,!?;:]/g, '');
+
+    const directClosings = [
+      'no', 'nope', 'no thats all', 'no that is all', 'no thank you', 'no thanks',
+      'im good', 'i am good', 'nothing else', 'nothing', 'thats it', 'that is it',
+      'im done', 'i am done', 'all good', 'thats all', 'that is all',
+      'no im good', 'no i am good', 'no nothing else', 'no thats it',
+      'bye', 'goodbye', 'that will be all', 'stop', 'done', 'nevermind', 'never mind'
+    ];
+
+    if (directClosings.includes(lower)) return true;
+
+    // Check if phrase contains any closing signals
+    const phraseSignals = [
+      "that's all", "thats all", "nothing else", "i'm good", "im good",
+      "i'm done", "im done", "all good", "that's it", "thats it",
+      "no thank", "no, thank", "thank you that's all", "thanks that's all"
+    ];
+
+    if (lower.startsWith('no ') || phraseSignals.some(s => lower.includes(s))) {
+      // If user asks a new object query in the same phrase (e.g., "no, wait, where is my wallet?")
+      // don't treat it as closing!
+      const objectSignals = ['where', 'find', 'check', 'look for', 'glasses', 'wallet', 'keys', 'charger', 'mouse', 'earbuds', 'phone', 'bag'];
+      if (objectSignals.some(k => lower.includes(k))) {
+        return false;
+      }
+      return true;
+    }
+
+    return false;
+  };
+
   // Dynamic Real-Time Spatial Relational Reasoning Engine
   // Analyzes real-time live camera frames, current detector telemetry, and temporal memory logs.
   // Generates unique, contextual, non-repetitive explanations based on the actual observed scene.
@@ -1068,7 +1123,7 @@ export default function App() {
         ],
         frame_path: latestLiveFrameRef.current.snapshot, // LIVE FRESH CAMERA PHOTO!
         thumbnail_path: 'thumbnails/keys.jpg',
-        explanation: `Looking at your live camera feed right now at ${latestLiveFrameRef.current.timeStr}: your ${liveDet.label} is clearly visible ${liveDet.context}. I've highlighted its exact location on your radar screen. Is there anything else you'd like me to find?`
+        explanation: `Looking at your live camera feed right now: your ${liveDet.label} is clearly visible ${liveDet.context}. Is there anything else you'd like me to help you find?`
       };
     }
 
@@ -1085,25 +1140,9 @@ export default function App() {
     });
 
     if (matched) {
-      const msDiff = Date.now() - new Date(matched.timestamp).getTime();
-      const secondsAgo = Math.max(1, Math.floor(msDiff / 1000));
-      const timeStr = new Date(matched.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      
       const frameToDisplay = (matched.frame_path && matched.frame_path.startsWith('data:')) 
         ? matched.frame_path 
         : (latestLiveFrameRef.current ? latestLiveFrameRef.current.snapshot : matched.frame_path);
-
-      let dynamicText = "";
-      if (matched.image_purged) {
-        dynamicText = `I identified and verified your ${matched.object_name} on the ${matched.room_context} (${timeAgo} at ${timeStr}). As per our zero-surveillance policy, the raw camera image buffer was cleaned from memory, while its spatial coordinates and identity remain permanently indexed in your knowledge graph. Is there anything else you'd like me to find?`;
-      } else if (secondsAgo < 60) {
-        dynamicText = `I analyzed your live camera feed from ${secondsAgo} seconds ago (${timeStr}): your ${matched.object_name} was captured on the ${matched.room_context}. I have locked this verified photo into your Visual Vault. Is there anything else you'd like me to find?`;
-      } else if (secondsAgo < 3600) {
-        const mins = Math.floor(secondsAgo / 60);
-        dynamicText = `According to your 24/7 camera surveillance log from ${mins} minute${mins > 1 ? 's' : ''} ago (${timeStr}): your ${matched.object_name} was verified on the ${matched.room_context}. Here is the exact photo recorded by Spatial Sentry. Is there anything else you'd like me to check?`;
-      } else {
-        dynamicText = `Your ${matched.object_name} was recorded on the ${matched.room_context} (${formatTimeAgo(matched.timestamp)} at ${timeStr}). Spatial Sentry verified its coordinates with 99% confidence. Is there anything else you'd like me to find?`;
-      }
 
       return {
         found: true,
@@ -1115,77 +1154,93 @@ export default function App() {
         segmentation_polygon: matched.segmentation_polygon,
         frame_path: frameToDisplay,
         thumbnail_path: matched.thumbnail_path,
-        explanation: dynamicText
+        explanation: `Your ${matched.object_name} was last spotted on the ${matched.room_context}. Is there anything else you'd like me to help you find?`
       };
     }
 
-    // 3. Dynamic contextual fallback if not yet detected in camera
+    // 3. Contextual fallback if not yet detected in camera
     const displayItem = extracted.target || 'item';
-    let notFoundText = "";
-    if (isCameraActive) {
-      notFoundText = `I just analyzed the live room view from your camera, but haven't detected your ${displayItem} in the current frame. Try panning your camera toward your desk or table so I can capture and index it into memory. Would you like me to check for another item?`;
-    } else {
-      notFoundText = `I searched your 24/7 sentinel memory, but I haven't observed your ${displayItem} yet. Please tap 'Engage Bodyguard' on the Radar tab to let Spatial Sentry automatically map and remember your room items. Is there another item you'd like me to check?`;
-    }
-
     return {
       found: false,
       target_object: displayItem,
       location_context: isCameraActive ? "Scanning live camera field" : "Guard in standby",
       confidence: 0.1,
       frame_path: latestLiveFrameRef.current ? latestLiveFrameRef.current.snapshot : null,
-      explanation: notFoundText
+      explanation: `I checked your camera memory, but haven't spotted your ${displayItem} yet. Is there anything else you'd like me to help you find?`
     };
   };
 
-  // Assistant Query with Conversational Multi-turn Flow
+  // Assistant Query with TARA Persona & Conversation State Management
+  // Flow: FIND OBJECT -> SHARE LOCATION -> OFFER FURTHER HELP -> PROCESS USER RESPONSE -> CLOSE OR CONTINUE
   const handleSearch = async (queryText, isFollowUp = false) => {
     const q = (queryText || query).trim();
     if (!q) return;
 
-    setIsSearching(true);
-    setAssistantResult(null);
+    const currentState = taraStateRef.current;
 
-    const lowerQ = q.toLowerCase();
-
-    // Check for conversation completion / closing phrases (including "no", "no thanks", etc.)
-    const CLOSING_PATTERNS = [
-      'thank', 'thanks', 'no', 'nope', 'nothing', 'no question', 'no questions',
-      'that is all', "that's all", 'all good', "i'm good", 'im good', 'stop',
-      'nevermind', 'never mind', 'ok thank', 'okay thank', 'bye', 'goodbye'
-    ];
-    const isClosing = CLOSING_PATTERNS.some(p => {
-      if (p === 'no' || p === 'nope') {
-        return lowerQ === 'no' || lowerQ === 'nope' || lowerQ.startsWith('no ') || lowerQ.includes('no thanks') || lowerQ.includes('no thank');
-      }
-      return lowerQ.includes(p);
-    });
+    // Check for explicit or indirect negative responses (Case B & Case C)
+    const isClosing = isNegativeClosingResponse(q);
 
     if (isClosing) {
+      // Case B & Case C: User has no further requests ("No, that's all", "I'm good", etc.)
+      updateTaraState(TARA_STATES.CONVERSATION_CLOSING);
       setIsSearching(false);
       setIsRecording(false);
       setIsWaitingForFollowUp(false);
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch(e){}
       }
-      let responseText = "You're welcome! Spatial Sentry guard is standing by.";
-      if (lowerQ.includes('no') || lowerQ.includes('nothing') || lowerQ.includes("that's all") || lowerQ.includes('all good')) {
-        responseText = "Understood. Spatial Sentry is active and keeping 24/7 watch.";
-      } else if (lowerQ.includes('bye') || lowerQ.includes('goodbye')) {
-        responseText = "Goodbye! Spatial Sentry will continue monitoring in the background.";
-      }
+
+      const closingResponse = "Alright! Glad I could help. Just call me whenever you need to find something. Have a great day!";
+      
       const closureResult = {
         found: true,
         is_closure: true,
-        target_object: "Spatial Sentry Guard",
-        location_context: "Active Sentinel Radar",
+        target_object: "TARA Spatial Sentinel",
+        location_context: "Goal Completed • Voice Session Ended",
         confidence: 1.0,
-        explanation: responseText
+        explanation: closingResponse
       };
       setAssistantResult(closureResult);
-      speakText(responseText); // No onEnd -> conversation ends!
+
+      // Restriction: Do not terminate voice session before delivering the closing response.
+      speakText(closingResponse, () => {
+        // State 6: CONVERSATION_ENDED
+        updateTaraState(TARA_STATES.CONVERSATION_ENDED);
+        setIsWaitingForFollowUp(false);
+        setIsRecording(false);
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch(e){}
+        }
+      });
       return;
     }
+
+    // Active object search!
+    const extracted = extractTargetObject(q);
+    const displayItem = extracted.target || 'item';
+
+    // Check Case D (User requests another object while closing) vs Case A (Find another object)
+    let prefix = "";
+    if (currentState === TARA_STATES.CONVERSATION_CLOSING || currentState === TARA_STATES.CONVERSATION_ENDED) {
+      // Case D: User requests another object while closing
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch(e){}
+      }
+      updateTaraState(TARA_STATES.NEW_SEARCH);
+      prefix = `Of course! Let me check where your ${displayItem} was last spotted. `;
+    } else if (currentState === TARA_STATES.ASKING_FOR_MORE || currentState === TARA_STATES.SEARCH_COMPLETED || isFollowUp) {
+      // Case A: User wants to find another object
+      updateTaraState(TARA_STATES.NEW_SEARCH);
+      prefix = `Sure! Let me check your ${displayItem}. `;
+    }
+
+    // State 1: ACTIVE_SEARCH
+    updateTaraState(TARA_STATES.ACTIVE_SEARCH);
+    setIsSearching(true);
+    setAssistantResult(null);
+
+    let searchResult = null;
 
     // 1. Try backend Meta Muse Spark query if reachable
     try {
@@ -1198,29 +1253,33 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (data && data.found) {
-          if (data.explanation && !data.explanation.includes("anything else")) {
-            data.explanation = `${data.explanation} Is there anything else you'd like me to find?`;
-          }
-          setAssistantResult(data);
-          setIsSearching(false);
-          speakText(data.explanation, () => {
-            // When speaking finishes, wait for person to speak follow-up!
-            startListening(true);
-          });
-          return;
+          searchResult = data;
         }
       }
     } catch (err) {
       console.warn("Backend query unavailable, resolving via local spatial relational memory engine:", err);
     }
 
-    // 2. Client-side Spatial Relational Memory Engine
-    const localResult = resolveSpatialQueryLocally(q, memories);
-    setAssistantResult(localResult);
+    // 2. Client-side Spatial Relational Memory Engine fallback
+    if (!searchResult) {
+      searchResult = resolveSpatialQueryLocally(q, memories);
+    }
+
+    // Prepend acknowledgment prefix if applicable (Case A / Case D)
+    if (prefix && searchResult.explanation) {
+      searchResult.explanation = `${prefix}${searchResult.explanation}`;
+    }
+
+    // State 2: SEARCH_COMPLETED (Location retrieved and communicated)
     setIsSearching(false);
-    if (localResult.explanation) {
-      speakText(localResult.explanation, () => {
-        // When speaking finishes, wait for person to speak follow-up!
+    setAssistantResult(searchResult);
+    updateTaraState(TARA_STATES.SEARCH_COMPLETED);
+
+    // Speak location and follow-up question
+    if (searchResult.explanation) {
+      speakText(searchResult.explanation, () => {
+        // State 3: ASKING_FOR_MORE (TARA is asking whether the user needs help finding another object)
+        updateTaraState(TARA_STATES.ASKING_FOR_MORE);
         startListening(true);
       });
     }
@@ -1248,6 +1307,11 @@ export default function App() {
       recognition.onstart = () => {
         setIsRecording(true);
         setIsWaitingForFollowUp(isFollowUp);
+        if (isFollowUp) {
+          updateTaraState(TARA_STATES.ASKING_FOR_MORE);
+        } else {
+          updateTaraState(TARA_STATES.ACTIVE_SEARCH);
+        }
       };
 
       recognition.onresult = (event) => {
@@ -1261,19 +1325,31 @@ export default function App() {
       recognition.onerror = (event) => {
         console.warn("Speech recognition error:", event.error);
         setIsRecording(false);
-        setIsWaitingForFollowUp(false);
+        // Restriction: Do not mistake silence or speech-recognition failure for an explicit confirmation that the user wants to end the conversation.
+        if (taraStateRef.current === TARA_STATES.ASKING_FOR_MORE) {
+          setIsWaitingForFollowUp(true);
+        } else {
+          setIsWaitingForFollowUp(false);
+        }
       };
 
       recognition.onend = () => {
         setIsRecording(false);
-        setIsWaitingForFollowUp(false);
+        // Restriction: Do not mistake silence or timeout for an explicit confirmation to end the conversation.
+        if (taraStateRef.current === TARA_STATES.ASKING_FOR_MORE) {
+          setIsWaitingForFollowUp(true);
+        } else {
+          setIsWaitingForFollowUp(false);
+        }
       };
 
       recognition.start();
     } catch (err) {
       console.warn("Speech recognition start failed:", err);
       setIsRecording(false);
-      setIsWaitingForFollowUp(false);
+      if (taraStateRef.current !== TARA_STATES.ASKING_FOR_MORE) {
+        setIsWaitingForFollowUp(false);
+      }
     }
   };
 
@@ -1298,7 +1374,7 @@ export default function App() {
       } catch(e){}
     }
 
-    startListening(false);
+    startListening(taraStateRef.current === TARA_STATES.ASKING_FOR_MORE);
   };
 
   // Render SVG SAM 3.1 Bounding Polygon & Box
@@ -1974,14 +2050,50 @@ export default function App() {
         {activeTab === 'assistant' && (
           <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
             <div className="bg-[#090d16] border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-indigo-400" />
-                  Ask SpatialSentry: Spatial Memory & Anti-Theft
-                </h2>
-                <p className="text-xs text-gray-400 mt-1">
-                  Query your security timeline or ambient peace-of-mind memories hands-free.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-400" />
+                    TARA — 24/7 Voice AI Spatial Memory Sentinel
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Conversational Object Finding & Goal Completion Engine (Meta Muse Spark)
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">State:</span>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                    taraState === TARA_STATES.ACTIVE_SEARCH
+                      ? 'bg-amber-950/80 text-amber-300 border border-amber-600/70 animate-pulse'
+                      : taraState === TARA_STATES.SEARCH_COMPLETED
+                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-600/70'
+                      : taraState === TARA_STATES.ASKING_FOR_MORE
+                      ? 'bg-purple-950/80 text-purple-300 border border-purple-500/80 animate-pulse ring-2 ring-purple-500/30'
+                      : taraState === TARA_STATES.NEW_SEARCH
+                      ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-600/70'
+                      : taraState === TARA_STATES.CONVERSATION_CLOSING
+                      ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-600/70 animate-pulse'
+                      : taraState === TARA_STATES.CONVERSATION_ENDED
+                      ? 'bg-gray-800 text-gray-400 border border-gray-700'
+                      : 'bg-gray-900 text-gray-400 border border-gray-800'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${
+                      taraState === TARA_STATES.ACTIVE_SEARCH ? 'bg-amber-400 animate-ping' :
+                      taraState === TARA_STATES.SEARCH_COMPLETED ? 'bg-emerald-400' :
+                      taraState === TARA_STATES.ASKING_FOR_MORE ? 'bg-purple-400 animate-ping' :
+                      taraState === TARA_STATES.NEW_SEARCH ? 'bg-indigo-400 animate-ping' :
+                      taraState === TARA_STATES.CONVERSATION_CLOSING ? 'bg-cyan-400 animate-ping' :
+                      taraState === TARA_STATES.CONVERSATION_ENDED ? 'bg-gray-500' : 'bg-gray-600'
+                    }`} />
+                    {taraState === TARA_STATES.ACTIVE_SEARCH && '1. ACTIVE_SEARCH'}
+                    {taraState === TARA_STATES.SEARCH_COMPLETED && '2. SEARCH_COMPLETED'}
+                    {taraState === TARA_STATES.ASKING_FOR_MORE && '3. ASKING_FOR_MORE'}
+                    {taraState === TARA_STATES.NEW_SEARCH && '4. NEW_SEARCH'}
+                    {taraState === TARA_STATES.CONVERSATION_CLOSING && '5. CONVERSATION_CLOSING'}
+                    {taraState === TARA_STATES.CONVERSATION_ENDED && '6. CONVERSATION_ENDED'}
+                    {taraState === TARA_STATES.IDLE && 'STANDBY'}
+                  </span>
+                </div>
               </div>
 
               {/* Search Bar + Hands-Free Voice Button */}
@@ -1992,7 +2104,7 @@ export default function App() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    placeholder="e.g. 'Did someone grab my phone?' or 'Did I unplug the iron?'..."
+                    placeholder="e.g. 'Where is my mouse?', 'Where are my keys?', 'Did I unplug the iron?'..."
                     className="w-full bg-gray-900 border border-gray-800 focus:border-cyan-400 rounded-xl px-4 py-3.5 text-sm text-gray-100 outline-none transition-all pr-12 shadow-inner"
                   />
                   <button
@@ -2025,35 +2137,41 @@ export default function App() {
               </div>
 
               {/* Conversational Follow-Up Banner */}
-              {isWaitingForFollowUp && (
-                <div className="p-3.5 rounded-xl bg-purple-950/50 border border-purple-500/60 flex items-center justify-between text-xs text-purple-200 shadow-lg animate-pulse">
+              {(isWaitingForFollowUp || taraState === TARA_STATES.ASKING_FOR_MORE) && (
+                <div className="p-3.5 rounded-xl bg-purple-950/60 border border-purple-500/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-purple-200 shadow-lg">
                   <div className="flex items-center gap-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-ping"></span>
-                    <span className="font-semibold">Assistant is waiting: <em>"Is there anything else you'd like me to find?"</em></span>
+                    <span className="font-semibold">
+                      TARA is waiting: <em>"Is there anything else you'd like me to help you find?"</em>
+                    </span>
                   </div>
-                  <span className="text-[11px] text-purple-300 font-mono">Speak your question or "No, thanks"</span>
+                  <span className="text-[11px] text-purple-300 font-mono">
+                    Say "Yes, where is my wallet?" (Case A) or "No, that's all" (Case B)
+                  </span>
                 </div>
               )}
 
-              {/* Quick Prompt Pills */}
+              {/* Quick Persona Action Chips */}
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-gray-500 font-medium">Try asking:</span>
+                <span className="text-gray-500 font-medium">Test Persona Cases:</span>
                 {[
-                  "Where are my apartment keys?",
-                  "Where are my earbuds?",
-                  "Did I unplug the iron?",
-                  "Where is my wallet?",
-                  "Thank you, that's all"
-                ].map((promptText, idx) => (
+                  { label: "Case A: 'Yes, where is my wallet?'", query: "Yes, where is my wallet?" },
+                  { label: "Case B: 'No, that's all.'", query: "No, that's all." },
+                  { label: "Case C: 'I'm good.'", query: "I'm good." },
+                  { label: "Case D: 'Actually, can you find my glasses too?'", query: "Actually, can you find my glasses too?" },
+                  { label: "Find Mouse", query: "Where is my mouse?" },
+                  { label: "Find Keys", query: "Where are my apartment keys?" },
+                  { label: "Find Charger", query: "Where is my charger?" }
+                ].map((item, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
-                      setQuery(promptText);
-                      handleSearch(promptText);
+                      setQuery(item.query);
+                      handleSearch(item.query);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-indigo-950/60 border border-gray-800 hover:border-indigo-700 text-gray-300 hover:text-indigo-300 transition-all cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg bg-gray-900 hover:bg-indigo-950/70 border border-gray-800 hover:border-indigo-600/70 text-gray-300 hover:text-indigo-200 transition-all cursor-pointer font-medium"
                   >
-                    {promptText}
+                    {item.label}
                   </button>
                 ))}
               </div>
@@ -2182,23 +2300,24 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Multi-turn suggested follow-ups */}
+                  {/* Multi-turn suggested follow-ups (TARA Persona Responses) */}
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-800/80 text-xs">
-                    <span className="text-gray-400 font-medium">Follow-up:</span>
+                    <span className="text-gray-400 font-medium">Respond to TARA:</span>
                     {[
-                      "Where are my earbuds?",
-                      "Where is my wallet?",
-                      "No, that's all, thanks!"
-                    ].map((replyText, idx) => (
+                      { label: "Case A: 'Yes, where is my wallet?'", text: "Yes, where is my wallet?" },
+                      { label: "Case B: 'No, that's all.'", text: "No, that's all." },
+                      { label: "Case C: 'I'm good.'", text: "I'm good." },
+                      { label: "Case D: 'Actually, can you find my glasses too?'", text: "Actually, can you find my glasses too?" }
+                    ].map((reply, idx) => (
                       <button
                         key={idx}
                         onClick={() => {
-                          setQuery(replyText);
-                          handleSearch(replyText, true);
+                          setQuery(reply.text);
+                          handleSearch(reply.text, true);
                         }}
                         className="px-2.5 py-1 rounded-lg bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-purple-500/50 text-gray-300 hover:text-purple-300 transition-all cursor-pointer"
                       >
-                        {replyText}
+                        {reply.label}
                       </button>
                     ))}
                   </div>
